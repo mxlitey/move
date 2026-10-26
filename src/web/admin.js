@@ -207,56 +207,82 @@ import { renderQrSvg } from '../shared/qr.js';
 
   // ------------------------- 拖拽排序 -------------------------
   //
-  // 用 Pointer Events 而不是 HTML5 拖拽：后者在移动端浏览器基本不触发。
-  // Pointer Events 一套代码同时覆盖鼠标、触屏和手写笔。
-  // 只有按住左侧抓手才进入拖拽，避免和开关、编辑按钮冲突。
+  // 交互：按住整行任意位置（按钮/开关除外）→ 虚化缩放；
+  // 拖动 → 浮动卡片跟手，落点出现虚线占位框；松手 → 落到占位处。
+  //
+  // 鼠标：按下后移动 4px 即进入拖拽。
+  // 触屏：长按 220ms 进入拖拽；期间移动超过 10px 视为滚动页面，不拖拽。
 
-  var dragState = null;
+  var drag = null;
+  var pressTimer = null;
 
   function bindDragSort() {
     var list = $('carList');
     if (list.getAttribute('data-drag-bound') === '1') return;
     list.setAttribute('data-drag-bound', '1');
 
-    // 事件委托绑在列表容器上：行节点被重建后依然有效，
-    // 不会因为 renderCars 替换 innerHTML 而丢失监听
-    list.addEventListener('pointerdown', function (ev) {
-      if (!ev.target.closest || !ev.target.closest('.drag-handle')) return;
-      onHandleDown(ev);
-    });
+    list.addEventListener('pointerdown', onListPointerDown);
 
+    // 长按可能弹出系统菜单，整行都拦掉
     list.addEventListener('contextmenu', function (ev) {
-      if (ev.target.closest && ev.target.closest('.drag-handle')) ev.preventDefault();
+      if (ev.target.closest && ev.target.closest('.car-row.is-draggable')) ev.preventDefault();
     });
 
+    // 阻止浏览器原生拖拽（图片/文本）打断我们的逻辑
     list.addEventListener('dragstart', function (ev) {
-      if (ev.target.closest && ev.target.closest('.drag-handle')) ev.preventDefault();
+      if (ev.target.closest && ev.target.closest('.car-row.is-draggable')) ev.preventDefault();
     });
   }
 
-  function onHandleDown(ev) {
-    // 只响应主键（鼠标左键 / 单指）
-    if (typeof ev.button === 'number' && ev.button !== 0) return;
+  /** 这些控件上的按下不应触发拖拽 */
+  function isInteractive(target) {
+    return !!(target.closest && target.closest('button, input, select, textarea, a, label'));
+  }
 
-    var handle = ev.target.closest('.drag-handle');
-    var row = handle && handle.closest('.car-row');
-    if (!row) return;
+  function onListPointerDown(ev) {
+    if (drag) return;
+    if (typeof ev.button === 'number' && ev.button !== 0) return;
+    if (isInteractive(ev.target)) return;
+
+    var row = ev.target.closest && ev.target.closest('.car-row');
+    if (!row || !row.classList.contains('is-draggable')) return;
+    if ($('carList').querySelectorAll('.car-row').length < 2) return;
 
     ev.preventDefault();
+    clearSelection();
 
-    dragState = {
+    var rect = row.getBoundingClientRect();
+    drag = {
       id: row.getAttribute('data-id'),
       row: row,
       pointerId: ev.pointerId,
+      pointerType: ev.pointerType || 'mouse',
       startY: ev.clientY,
-      dragging: false,
+      offsetY: ev.clientY - rect.top,
+      width: rect.width,
+      height: rect.height,
+      active: false,
+      ghost: null,
+      placeholder: null,
+      beforeId: null,
     };
 
-    // 从按下的瞬间就禁掉选中，避免鼠标一按就刷出蓝色选区
+    // 按住立即给出反馈
+    row.classList.add('is-pressed');
     document.body.classList.add('is-sorting');
-    clearSelection();
 
-    // 监听绑在 window 上，手指/鼠标移出抓手也不会断
+    if (drag.pointerType === 'mouse') {
+      // 鼠标：轻微移动就进入拖拽
+      drag.armOnMove = true;
+    } else {
+      // 触屏：长按一小会儿再进入拖拽，留出正常滚动页面的余地
+      drag.armOnMove = false;
+      pressTimer = setTimeout(function () {
+        pressTimer = null;
+        if (drag && !drag.active) activateDrag();
+      }, 220);
+    }
+
     window.addEventListener('pointermove', onPointerMove, { passive: false });
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerCancel);
@@ -264,10 +290,9 @@ import { renderQrSvg } from '../shared/qr.js';
   }
 
   function preventDuringSort(ev) {
-    if (dragState) ev.preventDefault();
+    if (drag) ev.preventDefault();
   }
 
-  /** 清掉可能已经产生的选区（移动端长按有时在 pointerdown 前就选中了） */
   function clearSelection() {
     try {
       var sel = window.getSelection && window.getSelection();
@@ -277,119 +302,173 @@ import { renderQrSvg } from '../shared/qr.js';
     }
   }
 
-  function onPointerMove(ev) {
-    if (!dragState) return;
-    if (ev.pointerId !== dragState.pointerId) return;
+  function clearPressTimer() {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+    }
+  }
 
-    // 移动超过 6px 才算拖拽，避免误触
-    if (!dragState.dragging) {
-      if (Math.abs(ev.clientY - dragState.startY) < 6) return;
-      dragState.dragging = true;
-      dragState.row.classList.add('is-dragging');
+  function onPointerMove(ev) {
+    if (!drag || ev.pointerId !== drag.pointerId) return;
+
+    var dy = Math.abs(ev.clientY - drag.startY);
+
+    if (!drag.active) {
+      // 触屏还没到长按时间就往一个方向滑了 → 当成滚动，放弃拖拽
+      if (!drag.armOnMove) {
+        if (dy > 10) {
+          cancelPendingPress();
+        }
+        return;
+      }
+      // 鼠标：移动 4px 进入拖拽
+      if (dy < 4) return;
+      activateDrag();
     }
 
     ev.preventDefault();
-    ev.stopPropagation();
 
-    // 实时提示落点
-    clearDropMarks();
-    var hit = dropTargetAt(ev.clientY, dragState.row);
-    if (!hit) return;
+    var top = ev.clientY - drag.offsetY;
+    drag.ghost.style.transform = 'translate3d(0,' + top + 'px,0) scale(1.02)';
 
-    dragState.targetId = hit.row.getAttribute('data-id');
-    dragState.before = hit.before;
-    hit.row.classList.add(hit.before ? 'drag-over-top' : 'drag-over-bottom');
+    updatePlaceholder(ev.clientY);
   }
 
-  /**
-   * 计算落点。指针在首行之上 → 插到最前；在末行之下 → 插到最后；
-   * 其余情况按所在行上半/下半决定插到该行之前或之后。
-   */
-  function dropTargetAt(y, excludeRow) {
+  /** 触屏误触滚动时放弃拖拽，但恢复原状 */
+  function cancelPendingPress() {
+    clearPressTimer();
+    endDrag();
+  }
+
+  function activateDrag() {
+    clearPressTimer();
+    if (!drag || drag.active) return;
+
+    drag.active = true;
+
+    var row = drag.row;
+    var rect = row.getBoundingClientRect();
+
+    // 浮动卡片
+    var ghost = row.cloneNode(true);
+    ghost.className = 'car-row drag-ghost';
+    ghost.style.width = drag.width + 'px';
+    ghost.style.height = drag.height + 'px';
+    ghost.style.left = rect.left + 'px';
+    ghost.style.transform = 'translate3d(0,' + rect.top + 'px,0) scale(1.02)';
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+
+    // 虚线占位框
+    var ph = document.createElement('div');
+    ph.className = 'drag-placeholder';
+    ph.style.height = drag.height + 'px';
+    drag.placeholder = ph;
+
+    row.classList.remove('is-pressed');
+    row.classList.add('is-source');
+    row.parentNode.insertBefore(ph, row.nextSibling);
+
+    // 真正拖起来之后锁住页面滚动
+    document.body.classList.add('is-dragging-page');
+
+    // 触屏：进入拖拽后彻底阻断页面滚动
+    if (drag.pointerType !== 'mouse') {
+      document.addEventListener('touchmove', blockTouchMove, { passive: false });
+    }
+  }
+
+  function blockTouchMove(ev) {
+    if (drag && drag.active) ev.preventDefault();
+  }
+
+  /** 根据指针位置把占位框移动到对应位置 */
+  function updatePlaceholder(y) {
+    var ph = drag.placeholder;
+    if (!ph) return;
+
     var rows = Array.prototype.filter.call(
       $('carList').querySelectorAll('.car-row'),
-      function (r) { return r !== excludeRow; }
+      function (r) { return !r.classList.contains('is-source') && !r.classList.contains('drag-ghost'); }
     );
-    if (!rows.length) return null;
 
-    var first = rows[0].getBoundingClientRect();
-    if (y < first.top) return { row: rows[0], before: true };
-
-    var last = rows[rows.length - 1].getBoundingClientRect();
-    if (y > last.bottom) return { row: rows[rows.length - 1], before: false };
+    var list = $('carList');
+    var beforeRow = null;
 
     for (var i = 0; i < rows.length; i++) {
       var rect = rows[i].getBoundingClientRect();
-      if (y >= rect.top && y <= rect.bottom) {
-        return { row: rows[i], before: y < rect.top + rect.height / 2 };
+      if (y < rect.top + rect.height / 2) {
+        beforeRow = rows[i];
+        break;
       }
     }
-    return null;
+
+    drag.beforeId = beforeRow ? beforeRow.getAttribute('data-id') : null;
+
+    if (beforeRow) {
+      if (ph.nextSibling !== beforeRow) list.insertBefore(ph, beforeRow);
+    } else if (list.lastElementChild !== ph) {
+      list.appendChild(ph);
+    }
   }
 
   function onPointerUp(ev) {
-    if (!dragState) return;
-    if (ev.pointerId !== undefined && ev.pointerId !== dragState.pointerId) return;
+    if (!drag || (ev.pointerId !== undefined && ev.pointerId !== drag.pointerId)) return;
 
-    cleanupDrag();
+    var finished = drag;
+    var active = finished.active;
+    var beforeId = finished.beforeId;
 
-    var drag = dragState;
-    dragState = null;
+    endDrag();
 
-    // renderCars 可能已重建节点，这里对 null 保持宽容
-    if (drag.row) drag.row.classList.remove('is-dragging');
-    document.body.classList.remove('is-sorting');
-    clearDropMarks();
-
-    if (!drag.dragging || !drag.targetId || drag.targetId === drag.id) return;
+    if (!active) return;
 
     var ids = state.cars.map(function (c) { return c.id; });
-    var from = ids.indexOf(drag.id);
+    var from = ids.indexOf(finished.id);
     if (from < 0) return;
     ids.splice(from, 1);
 
-    var to = ids.indexOf(drag.targetId);
-    if (to < 0) return;
-    ids.splice(drag.before ? to : to + 1, 0, drag.id);
+    var to = beforeId ? ids.indexOf(beforeId) : ids.length;
+    if (to < 0) to = ids.length;
+    ids.splice(to, 0, finished.id);
 
     applyOrder(ids);
   }
 
   function onPointerCancel(ev) {
-    if (!dragState) return;
-    if (ev.pointerId !== undefined && ev.pointerId !== dragState.pointerId) return;
-
-    cleanupDrag();
-    if (dragState.row) dragState.row.classList.remove('is-dragging');
-    document.body.classList.remove('is-sorting');
-    clearDropMarks();
-    dragState = null;
+    if (!drag || (ev.pointerId !== undefined && ev.pointerId !== drag.pointerId)) return;
+    endDrag();
   }
 
-  function cleanupDrag() {
+  function endDrag() {
+    clearPressTimer();
+
+    var finished = drag;
+    drag = null;
+
     window.removeEventListener('pointermove', onPointerMove);
     window.removeEventListener('pointerup', onPointerUp);
     window.removeEventListener('pointercancel', onPointerCancel);
     document.removeEventListener('selectstart', preventDuringSort);
-  }
+    document.removeEventListener('touchmove', blockTouchMove);
 
-  /** 找出指针 y 坐标所在的车辆行，排除被拖拽的那一行 */
-  function rowUnderPoint(y, excludeRow) {
-    var rows = $('carList').querySelectorAll('.car-row');
-    for (var i = 0; i < rows.length; i++) {
-      var row = rows[i];
-      if (row === excludeRow) continue;
-      var rect = row.getBoundingClientRect();
-      if (y >= rect.top && y <= rect.bottom) return row;
+    document.body.classList.remove('is-sorting');
+    document.body.classList.remove('is-dragging-page');
+
+    if (!finished) return;
+    if (finished.ghost && finished.ghost.parentNode) finished.ghost.parentNode.removeChild(finished.ghost);
+    if (finished.placeholder && finished.placeholder.parentNode) {
+      finished.placeholder.parentNode.removeChild(finished.placeholder);
     }
-    return null;
+    if (finished.row) {
+      finished.row.classList.remove('is-pressed');
+      finished.row.classList.remove('is-source');
+    }
   }
 
   function clearDropMarks() {
-    var rows = $('carList').querySelectorAll('.car-row');
-    Array.prototype.forEach.call(rows, function (r) {
-      r.classList.remove('drag-over-top', 'drag-over-bottom');
-    });
+    // 占位框在 endDrag 中统一清理，这里保留空实现以便旧调用兼容
   }
 
   function applyOrder(ids) {

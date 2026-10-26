@@ -518,6 +518,8 @@ textarea.input { height: auto; padding: 12px 14px; line-height: 1.6; resize: ver
 .muted { color: var(--ink-3); font-size: 12.5px; line-height: 1.6; }
 
 /* 车辆列表 */
+#carList { position: relative; }
+
 .car-row {
   display: flex;
   align-items: center;
@@ -528,18 +530,56 @@ textarea.input { height: auto; padding: 12px 14px; line-height: 1.6; resize: ver
 }
 .car-row:last-child { border-bottom: 0; padding-bottom: 0; }
 
-.car-row.is-draggable { cursor: grab; }
+.car-row.is-draggable {
+  cursor: grab;
+  /* 整行可按住拖动：触摸手势交给 JS，避免按住就滚动页面 */
+  touch-action: pan-y;
+  -webkit-touch-callout: none;
+}
 .car-row.is-draggable:active { cursor: grabbing; }
 .car-row.is-draggable .icon-btn,
-.car-row.is-draggable .switch { cursor: pointer; }
-/* 整行不参与文本选中：拖拽时鼠标扫过不会刷出蓝色选区 */
-.car-row.is-draggable .car-row-main { user-select: none; -webkit-user-select: none; }
-.car-row.is-dragging {
-  opacity: .45;
-  background: var(--bg);
-  border-radius: 8px;
-  /* 保持高度，避免拖起后列表跳动导致落点判断漂移 */
-  box-shadow: inset 0 0 0 1px var(--line);
+.car-row.is-draggable .switch,
+.car-row.is-draggable .phone-chip { cursor: pointer; touch-action: manipulation; }
+/* 整行不参与文本选中：按住拖动不会刷出蓝色选区或复制菜单 */
+.car-row.is-draggable .car-row-main,
+.car-row.is-draggable .car-row-plate { user-select: none; -webkit-user-select: none; }
+
+/* 按住瞬间：虚化 + 轻微缩放，给出「已抓取」的即时反馈 */
+.car-row.is-pressed {
+  opacity: .55;
+  transform: scale(.98);
+  transition: opacity .12s, transform .12s;
+}
+
+/* 拖动中：原行让位隐藏，位置由虚线占位框表示 */
+.car-row.is-source { display: none; }
+
+/* 跟手的浮动卡片 */
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 999;
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(16, 24, 40, .22), 0 2px 6px rgba(16, 24, 40, .12);
+  pointer-events: none;
+  opacity: .96;
+  will-change: transform;
+}
+
+.drag-ghost .car-row-ops { opacity: .5; }
+
+/* 落点占位：虚线框 */
+.drag-placeholder {
+  margin: 4px 0;
+  border: 2px dashed var(--brand);
+  border-radius: 10px;
+  background: rgba(22, 119, 255, .06);
+  transition: height .12s;
 }
 
 /* 拖拽期间禁用文本选中，避免桌面端拖出蓝色选区 */
@@ -548,10 +588,10 @@ body.is-sorting {
   -webkit-user-select: none;
   cursor: grabbing;
 }
+body.is-sorting .car-row { touch-action: none; }
 body.is-sorting .drag-handle { cursor: grabbing; }
-
-.car-row.drag-over-top { box-shadow: inset 0 2px 0 var(--brand); }
-.car-row.drag-over-bottom { box-shadow: inset 0 -2px 0 var(--brand); }
+/* 真正拖起来之后才锁滚动，避免按下瞬间滚动条消失导致页面跳动 */
+body.is-dragging-page { overflow: hidden; }
 
 .drag-handle {
   flex: 0 0 32px;
