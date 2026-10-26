@@ -4,10 +4,21 @@ const CALL_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
 <path d="M6.6 3.5a2 2 0 0 1 2.3.9l1.2 2a2 2 0 0 1-.4 2.5l-.7.6a12.5 12.5 0 0 0 5.5 5.5l.6-.7a2 2 0 0 1 2.5-.4l2 1.2a2 2 0 0 1 .9 2.3l-.5 1.7a2.5 2.5 0 0 1-2.6 1.8C10.2 20.4 3.6 13.8 3.1 6.6A2.5 2.5 0 0 1 4.9 4l1.7-.5Z" fill="currentColor"/>
 </svg>`;
 
-function carMeta(car) {
-  return [car.color, car.model].filter(Boolean).join(' · ');
+const CHEVRON = `<svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="m6 9 6 6 6-6"/>
+</svg>`;
+
+function callButton(pageId, carId) {
+  return `<button type="button" class="call-btn" data-call-id="${escapeHtml(carId)}" data-page-id="${escapeHtml(pageId)}">
+  ${CALL_ICON}<span class="call-label">一键呼叫车主</span>
+</button>`;
 }
 
+/**
+ * 扫码页。
+ * 单车：直接展示车牌与呼叫按钮。
+ * 多车：手风琴，默认展开第一辆，展开项内嵌呼叫按钮。
+ */
 export function renderParkBody(page) {
   const cars = (page.cars || [])
     .filter((c) => c.enabled)
@@ -17,25 +28,30 @@ export function renderParkBody(page) {
 
   const single = cars.length === 1;
 
-  const carNodes = cars
-    .map((car, i) => {
-      if (single) {
-        return `<div class="car car-static">
-  <span class="car-text">
-    <span class="car-plate">${escapeHtml(car.plate)}</span>
-    ${carMeta(car) ? `<span class="car-meta">${escapeHtml(carMeta(car))}</span>` : ''}
-  </span>
-</div>`;
-      }
-      return `<button type="button" class="car" role="radio" aria-checked="${i === 0 ? 'true' : 'false'}" data-car-id="${escapeHtml(car.id)}">
-  <span class="car-text">
-    <span class="car-plate">${escapeHtml(car.plate)}</span>
-    ${carMeta(car) ? `<span class="car-meta">${escapeHtml(carMeta(car))}</span>` : ''}
-  </span>
-  <span class="car-check" aria-hidden="true"></span>
-</button>`;
-    })
-    .join('');
+  const carNodes = single
+    ? `<div class="acc-item is-open">
+  <div class="acc-head acc-head-static">
+    <span class="acc-plate">${escapeHtml(cars[0].plate)}</span>
+  </div>
+  <div class="acc-panel">
+    ${callButton(page.id, cars[0].id)}
+  </div>
+</div>`
+    : cars
+        .map(
+          (car, i) => `<div class="acc-item${i === 0 ? ' is-open' : ''}" data-car-id="${escapeHtml(car.id)}">
+  <button type="button" class="acc-head" aria-expanded="${i === 0}" aria-controls="panel-${escapeHtml(car.id)}">
+    <span class="acc-plate">${escapeHtml(car.plate)}</span>
+    ${CHEVRON}
+  </button>
+  <div class="acc-panel" id="panel-${escapeHtml(car.id)}">
+    <div class="acc-panel-inner">
+      ${callButton(page.id, car.id)}
+    </div>
+  </div>
+</div>`
+        )
+        .join('');
 
   return `<main class="park">
   <header class="park-hero">
@@ -44,20 +60,16 @@ export function renderParkBody(page) {
     ${page.notice ? `<p>${escapeHtml(page.notice)}</p>` : ''}
   </header>
 
-  ${single ? `<div class="park-cars">${carNodes}</div>` : `<div class="park-cars" role="radiogroup" aria-label="选择要联系的车辆">${carNodes}</div>`}
+  <div class="park-cars${single ? ' is-single' : ''}">${carNodes}</div>
 
-  <div class="park-actions">
-    <button type="button" class="call-btn" id="callBtn" data-page-id="${escapeHtml(page.id)}">
-      ${CALL_ICON}<span id="callLabel">一键呼叫车主</span>
-    </button>
-    <p class="park-hint">点击后直接拨打车主电话，请勿重复拨打</p>
-  </div>
+  <p class="park-hint">${single ? '点击按钮直接拨打车主电话' : '展开对应车辆后点击呼叫，请勿重复拨打'}</p>
 
   <p class="park-foot">本二维码由车主本人贴置于车内<br>如非挪车需要，请勿打扰</p>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script id="parkState" type="application/json">${safeJsonForScript({
     pageId: page.id,
+    single,
     cars: cars.map((c) => ({ id: c.id, plate: c.plate })),
   })}</script>`;
 }

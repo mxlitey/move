@@ -43,8 +43,6 @@ export function validateCarPayload(body) {
     value: {
       plate: plate.value,
       phone: phone.value,
-      model: cleanText(body.model, 30),
-      color: cleanText(body.color, 12),
     },
   };
 }

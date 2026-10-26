@@ -150,14 +150,17 @@ import { renderQrSvg } from '../shared/qr.js';
 
     var html = '';
     state.cars.forEach(function (car) {
-      var sub = [car.color, car.model].filter(Boolean).join(' · ') || '未填写车型';
       html +=
         '<div class="car-row" data-id="' + escapeHtml(car.id) + '">' +
-        '<span class="dot' + (car.enabled ? '' : ' off') + '"></span>' +
+        '<label class="switch" title="' + (car.enabled ? '点击在扫码页隐藏' : '点击在扫码页显示') + '">' +
+        '<input type="checkbox" data-act="toggle"' + (car.enabled ? ' checked' : '') + ' aria-label="' +
+        escapeHtml(car.plate) + ' 是否在扫码页显示">' +
+        '<span></span>' +
+        '</label>' +
         '<div class="car-row-main">' +
         '<div class="car-row-plate">' + escapeHtml(car.plate) + '</div>' +
-        '<div class="car-row-sub">' + escapeHtml(sub) + ' · ' + escapeHtml(maskPhone(car.phone)) +
-        (car.enabled ? '' : ' · 已停用') + '</div>' +
+        '<div class="car-row-sub">' + escapeHtml(maskPhone(car.phone)) +
+        (car.enabled ? '' : ' · 已在扫码页隐藏') + '</div>' +
         '</div>' +
         '<div class="car-row-ops">' +
         '<button class="icon-btn" data-act="edit" type="button" aria-label="编辑">' +
@@ -181,16 +184,58 @@ import { renderQrSvg } from '../shared/qr.js';
     state.cars.forEach(function (c) { if (c.id === id) car = c; });
     if (!car) return;
 
-    if (btn.getAttribute('data-act') === 'edit') {
+    var act = btn.getAttribute('data-act');
+
+    if (act === 'edit') {
       openCarModal(car);
       return;
     }
 
-    if (!confirm('确定删除 ' + car.plate + ' 吗？删除后不可恢复。')) return;
-    api('/api/admin/car?id=' + encodeURIComponent(id) + '&rev=' + state.site.rev, { method: 'DELETE' })
-      .then(loadData)
-      .then(function () { toast('已删除'); })
-      .catch(function (err) { toast(err.message); });
+    if (act === 'del') {
+      if (!confirm('确定删除 ' + car.plate + ' 吗？删除后不可恢复。')) return;
+      api('/api/admin/car?id=' + encodeURIComponent(id) + '&rev=' + state.site.rev, { method: 'DELETE' })
+        .then(loadData)
+        .then(function () { toast('已删除'); })
+        .catch(function (err) { toast(err.message); });
+    }
+  });
+
+  // 列表内开关：直接切换是否在扫码页显示
+  $('carList').addEventListener('change', function (ev) {
+    var input = ev.target;
+    if (!input || input.getAttribute('data-act') !== 'toggle') return;
+
+    var row = input.closest('.car-row');
+    if (!row) return;
+    var id = row.getAttribute('data-id');
+    var car = null;
+    state.cars.forEach(function (c) { if (c.id === id) car = c; });
+    if (!car) return;
+
+    var next = input.checked;
+    input.disabled = true;
+
+    api('/api/admin/car', {
+      method: 'POST',
+      body: {
+        id: car.id,
+        plate: car.plate,
+        phone: car.phone,
+        enabled: next,
+        rev: state.site.rev,
+      },
+    })
+      .then(function (data) {
+        state.site = data.site;
+        state.cars = data.site.cars || [];
+        renderCars();
+        toast(next ? '已设为在扫码页显示' : '已在扫码页隐藏');
+      })
+      .catch(function (err) {
+        input.checked = !next;
+        input.disabled = false;
+        toast(err.message);
+      });
   });
 
   // ------------------------- 车辆弹层 -------------------------
@@ -198,10 +243,7 @@ import { renderQrSvg } from '../shared/qr.js';
   function openCarModal(car) {
     $('carId').value = car ? car.id : '';
     $('carPlate').value = car ? car.plate : '';
-    $('carModel').value = car ? car.model || '' : '';
-    $('carColor').value = car ? car.color || '' : '';
     $('carPhone').value = car ? car.phone || '' : '';
-    $('carEnabled').checked = car ? car.enabled !== false : true;
     $('carModalTitle').textContent = car ? '编辑车辆' : '添加车辆';
     showAlert('carError', '');
     $('carModal').hidden = false;
@@ -220,13 +262,17 @@ import { renderQrSvg } from '../shared/qr.js';
 
   $('carForm').addEventListener('submit', function (ev) {
     ev.preventDefault();
+    var existing = null;
+    if ($('carId').value) {
+      state.cars.forEach(function (c) { if (c.id === $('carId').value) existing = c; });
+    }
+
     var payload = {
       id: $('carId').value || undefined,
       plate: $('carPlate').value,
-      model: $('carModel').value,
-      color: $('carColor').value,
       phone: $('carPhone').value,
-      enabled: $('carEnabled').checked,
+      // 开关已移到列表里，弹层保存时保持原有可见状态
+      enabled: existing ? existing.enabled !== false : true,
       rev: state.site.rev,
     };
     var btn = $('carSaveBtn');

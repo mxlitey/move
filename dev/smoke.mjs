@@ -91,14 +91,23 @@ async function main() {
   }
   check('清空历史车辆', (site.cars || []).length === 0, `剩余 ${(site.cars || []).length}`);
 
+  // 首页
+  r = await call('/', { keepCookie: false });
+  check('首页可访问', r.status === 200);
+  check('首页是介绍页而非扫码页', String(r.payload).includes('它怎么工作'));
+  check('首页有后台入口', String(r.payload).includes('href="/admin"'));
+
   // 6. 新增车辆
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { plate: '粤B12345', model: '特斯拉 Model 3', color: '白色', phone: '13800138000', enabled: true, rev: site.rev },
+    body: { plate: '粤B12345', phone: '13800138000', enabled: true, rev: site.rev },
   });
   check('新增车辆成功', r.status === 200 && r.payload.ok, JSON.stringify(r.payload).slice(0, 120));
   let rev = r.payload.data ? r.payload.data.site.rev : site.rev;
   const car1 = r.payload.data ? r.payload.data.carId : null;
+  const firstCar = r.payload.data ? r.payload.data.site.cars[0] : {};
+  check('车辆不含车型字段', !('model' in firstCar));
+  check('车辆不含颜色字段', !('color' in firstCar));
 
   // 7. 手机号非法
   r = await call('/api/admin/car', {
@@ -117,7 +126,7 @@ async function main() {
   // 9. 再加一辆
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { plate: '粤B67890', model: '理想 L7', color: '黑色', phone: '13900139000', enabled: true, rev },
+    body: { plate: '粤B67890', phone: '13900139000', enabled: true, rev },
   });
   check('新增第二辆车', r.status === 200 && r.payload.ok);
   rev = r.payload.data.site.rev;
@@ -130,12 +139,17 @@ async function main() {
   const pageId = s2.id;
   rev = s2.rev;
 
-  // 11. 扫码页渲染
+  // 11. 扫码页渲染（多车 → 手风琴）
   r = await call(`/p/${pageId}`, { keepCookie: false });
+  const parkHtml = String(r.payload);
   check('扫码页可访问', r.status === 200);
-  check('扫码页含车牌', String(r.payload).includes('粤B12345'));
-  check('扫码页含两辆车', String(r.payload).includes('粤B67890'));
-  check('扫码页不含手机号', !String(r.payload).includes('13800138000'));
+  check('扫码页含车牌', parkHtml.includes('粤B12345'));
+  check('扫码页含两辆车', parkHtml.includes('粤B67890'));
+  check('扫码页不含手机号', !parkHtml.includes('13800138000'));
+  check('多车使用手风琴结构', parkHtml.includes('acc-item'));
+  check('默认只展开第一辆', (parkHtml.match(/acc-item is-open/g) || []).length === 1);
+  check('第一辆的呼叫按钮可见', parkHtml.includes(`data-call-id="${car1}"`));
+  check('第二辆也有呼叫按钮', parkHtml.includes(`data-call-id="${car2}"`));
 
   // 12. 错误 pageId
   r = await call('/p/zzzzzzzz', { keepCookie: false });
@@ -150,19 +164,32 @@ async function main() {
   r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: 'nope' }, keepCookie: false });
   check('未知车辆取号 404', r.status === 404);
 
-  // 15. 停用第二辆
+  // 15. 关闭第二辆的显示开关
   r = await call('/api/admin/car', {
     method: 'POST',
     body: { id: car2, plate: '粤B67890', phone: '13900139000', enabled: false, rev },
   });
-  check('停用车辆成功', r.status === 200 && r.payload.ok);
+  check('关闭显示开关成功', r.status === 200 && r.payload.ok);
   rev = r.payload.data.site.rev;
 
   r = await call(`/p/${pageId}`, { keepCookie: false });
-  check('停用后扫码页不再显示该车', !String(r.payload).includes('粤B67890'));
+  check('关闭后扫码页不再显示该车', !String(r.payload).includes('粤B67890'));
+  check('只剩一辆时使用单车结构', String(r.payload).includes('park-cars is-single'));
 
   r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: car2 }, keepCookie: false });
-  check('停用车辆取号被拒绝', r.status === 404);
+  check('隐藏车辆取号被拒绝', r.status === 404);
+
+  // 重新打开开关
+  r = await call('/api/admin/car', {
+    method: 'POST',
+    body: { id: car2, plate: '粤B67890', phone: '13900139000', enabled: true, rev },
+  });
+  check('重新打开显示开关', r.status === 200 && r.payload.ok);
+  rev = r.payload.data.site.rev;
+
+  r = await call(`/p/${pageId}`, { keepCookie: false });
+  check('重新打开后扫码页又显示该车', String(r.payload).includes('粤B67890'));
+  check('恢复为多车手风琴', String(r.payload).includes('acc-item'));
 
   // 16. 页面文案
   r = await call('/api/admin/page', {

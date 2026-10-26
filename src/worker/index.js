@@ -1,6 +1,5 @@
-import { fail, redirect } from './lib/http.js';
-import { readSite } from './lib/kv.js';
-import { handleParkPage, handleQrSvg, handleRobots } from './handlers/publicPages.js';
+import { fail } from './lib/http.js';
+import { handleHome, handleParkPage, handleQrSvg, handleRobots } from './handlers/publicPages.js';
 import { handleContact } from './handlers/publicApi.js';
 import {
   handleAdminPage,
@@ -14,8 +13,6 @@ import {
   handleDeleteCar,
   handleChangePassword,
 } from './handlers/adminApi.js';
-
-const PAGE_RE = /^[a-z0-9]{4,16}$/;
 
 export default {
   async fetch(request, context, env) {
@@ -96,11 +93,10 @@ export default {
         }
       }
 
-      // ---------- 首页跳转 ----------
+      // ---------- 首页 ----------
       if (path === '/' || path === '/index.html') {
-        const site = await readSite(env);
-        if (site && PAGE_RE.test(site.id)) return redirect(`/p/${site.id}`);
-        return redirect('/admin');
+        if (method !== 'GET') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
+        return handleHome(env);
       }
 
       return fail('NOT_FOUND', '页面不存在', 404);

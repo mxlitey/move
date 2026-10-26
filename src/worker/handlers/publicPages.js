@@ -1,9 +1,24 @@
 import { documentShell } from '../lib/layout.js';
 import { renderParkBody, renderNotFoundBody } from '../views/park.js';
+import { renderHomeBody } from '../views/home.js';
 import { readSite } from '../lib/kv.js';
 import { htmlPage, svgImage, text } from '../lib/http.js';
 import { renderQrSvg } from '../../shared/qr.js';
 import { CSS, PARK_JS } from '../generated/assets.js';
+
+/** 首页：项目介绍 + 管理后台入口 */
+export async function handleHome(env) {
+  const site = await readSite(env);
+
+  return documentShell({
+    title: '挪车码 · 扫码联系车主',
+    css: CSS,
+    script: '',
+    bodyClass: 'home-body',
+    body: renderHomeBody({ siteId: site ? site.id : '' }),
+    cache: 'public, max-age=60',
+  });
+}
 
 export async function handleParkPage(env, request, pageId) {
   const site = await readSite(env);

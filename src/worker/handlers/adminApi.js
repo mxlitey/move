@@ -181,8 +181,6 @@ export async function handleSaveCar(env, request) {
     id,
     plate: parsed.value.plate,
     phone: parsed.value.phone,
-    model: parsed.value.model,
-    color: parsed.value.color,
     enabled: body.enabled !== false,
     sort: index >= 0 ? cars[index].sort : cars.length + 1,
   };

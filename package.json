@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node dev/server.mjs",
     "build": "node build/build.mjs",
+    "test": "node dev/test.mjs",
     "smoke": "node dev/smoke.mjs"
   },
   "devDependencies": {

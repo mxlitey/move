@@ -13,9 +13,11 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = path.join(root, '.devdata');
-const dataFile = path.join(dataDir, 'kv.json');
 // 8787 常被其他本地服务占用，默认用 8899；可用 PORT 环境变量覆盖
 const PORT = Number(process.env.PORT || 8899);
+const NAMESPACE = process.env.KV_NAMESPACE || 'movecar';
+// 按命名空间分文件，便于用独立命名空间跑测试而不污染日常数据
+const dataFile = path.join(dataDir, `kv-${NAMESPACE}.json`);
 
 // ------------------------- EdgeKV 模拟 -------------------------
 let store = {};
@@ -90,7 +92,7 @@ if (!existsSync(entry)) {
 const { default: worker } = await import(`file://${entry.replace(/\\/g, '/')}?t=${Date.now()}`);
 
 const env = {
-  KV_NAMESPACE: 'movecar',
+  KV_NAMESPACE: NAMESPACE,
   ADMIN_SECRET: process.env.ADMIN_SECRET || 'local-dev-secret-0123456789abcdef',
 };
 

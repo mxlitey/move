@@ -72,7 +72,7 @@ export function renderAdminBody() {
       <div class="card-head">
         <div>
           <h2>车辆列表</h2>
-          <p class="desc">扫码页按此顺序展示，已停用的车辆不会出现在页面上</p>
+          <p class="desc">左侧开关控制是否在扫码页显示；扫码页按此顺序展示</p>
         </div>
         <button class="btn btn-sm" id="addCarBtn" type="button">${ICONS.plus}<span>添加车辆</span></button>
       </div>
@@ -190,29 +190,9 @@ export function renderAdminBody() {
         <label for="carPlate">车牌号</label>
         <input class="input" id="carPlate" maxlength="9" placeholder="如 粤B12345" required>
       </div>
-      <div class="row-2">
-        <div class="field">
-          <label for="carModel">车型（选填）</label>
-          <input class="input" id="carModel" maxlength="30" placeholder="如 特斯拉 Model 3">
-        </div>
-        <div class="field">
-          <label for="carColor">颜色（选填）</label>
-          <input class="input" id="carColor" maxlength="12" placeholder="如 白色">
-        </div>
-      </div>
       <div class="field">
         <label for="carPhone">联系电话</label>
         <input class="input" id="carPhone" maxlength="11" inputmode="numeric" placeholder="11 位手机号" required>
-      </div>
-      <div class="switch-row">
-        <div>
-          <div style="font-size:14px;font-weight:600">在扫码页显示</div>
-          <div class="muted" style="margin-top:2px">关闭后该车不会出现在扫码页，但记录保留</div>
-        </div>
-        <label class="switch">
-          <input type="checkbox" id="carEnabled" checked>
-          <span></span>
-        </label>
       </div>
       <div class="alert" id="carError" hidden></div>
       <div class="modal-foot">

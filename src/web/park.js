@@ -14,9 +14,6 @@
   var cars = state.cars || [];
   if (!cars.length) return;
 
-  var selectedId = cars.length === 1 ? cars[0].id : cars[0].id;
-  var callBtn = document.getElementById('callBtn');
-  var callLabel = document.getElementById('callLabel');
   var toastEl = document.getElementById('toast');
   var toastTimer = null;
   var busy = false;
@@ -31,15 +28,34 @@
     }, 2600);
   }
 
-  var cards = document.querySelectorAll('.car[data-car-id]');
-  for (var i = 0; i < cards.length; i++) {
-    cards[i].addEventListener('click', function () {
-      selectedId = this.getAttribute('data-car-id');
-      for (var j = 0; j < cards.length; j++) {
-        cards[j].setAttribute('aria-checked', cards[j] === this ? 'true' : 'false');
-      }
-    });
+  // ------------------------- 手风琴 -------------------------
+
+  var items = Array.prototype.slice.call(document.querySelectorAll('.acc-item[data-car-id]'));
+
+  function closeItem(item) {
+    item.classList.remove('is-open');
+    var head = item.querySelector('.acc-head');
+    if (head) head.setAttribute('aria-expanded', 'false');
   }
+
+  function openItem(item) {
+    item.classList.add('is-open');
+    var head = item.querySelector('.acc-head');
+    if (head) head.setAttribute('aria-expanded', 'true');
+  }
+
+  items.forEach(function (item) {
+    var head = item.querySelector('.acc-head');
+    if (!head) return;
+    head.addEventListener('click', function () {
+      if (item.classList.contains('is-open')) return;
+      // 同时只展开一辆，避免列表过长把呼叫按钮挤出屏幕
+      items.forEach(closeItem);
+      openItem(item);
+    });
+  });
+
+  // ------------------------- 拨号 -------------------------
 
   function maskPhone(phone) {
     if (!phone || phone.length < 7) return phone || '';
@@ -108,30 +124,34 @@
     if (okBtn) okBtn.focus();
   }
 
-  if (callBtn) {
-    callBtn.addEventListener('click', function () {
-      if (busy || !selectedId) return;
-      busy = true;
-      var original = callLabel ? callLabel.textContent : '';
-      if (callLabel) callLabel.textContent = '正在获取号码…';
-      callBtn.setAttribute('disabled', 'disabled');
+  document.addEventListener('click', function (ev) {
+    var btn = ev.target.closest ? ev.target.closest('.call-btn[data-call-id]') : null;
+    if (!btn || busy) return;
 
-      fetchPhone(selectedId)
-        .then(function (data) {
-          confirmDialog(data.phone);
-        })
-        .catch(function (err) {
-          if (err.code === 'RATE_LIMITED') {
-            toast('请求过于频繁，请稍后再试');
-          } else {
-            toast(err.message || '获取号码失败，请稍后重试');
-          }
-        })
-        .then(function () {
-          busy = false;
-          callBtn.removeAttribute('disabled');
-          if (callLabel) callLabel.textContent = original || '一键呼叫车主';
-        });
-    });
-  }
+    var carId = btn.getAttribute('data-call-id');
+    if (!carId) return;
+
+    busy = true;
+    var label = btn.querySelector('.call-label');
+    var original = label ? label.textContent : '';
+    if (label) label.textContent = '正在获取号码…';
+    btn.setAttribute('disabled', 'disabled');
+
+    fetchPhone(carId)
+      .then(function (data) {
+        confirmDialog(data.phone);
+      })
+      .catch(function (err) {
+        if (err.code === 'RATE_LIMITED') {
+          toast('请求过于频繁，请稍后再试');
+        } else {
+          toast(err.message || '获取号码失败，请稍后重试');
+        }
+      })
+      .then(function () {
+        busy = false;
+        btn.removeAttribute('disabled');
+        if (label) label.textContent = original || '一键呼叫车主';
+      });
+  });
 })();
