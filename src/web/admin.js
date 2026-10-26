@@ -196,6 +196,14 @@ import { renderQrSvg } from '../shared/qr.js';
 
     Array.prototype.forEach.call(handles, function (handle) {
       handle.addEventListener('pointerdown', onHandleDown);
+      // 触屏长按会触发 contextmenu 弹出「复制」，这里直接吃掉
+      handle.addEventListener('contextmenu', function (ev) {
+        ev.preventDefault();
+      });
+      // 阻止抓手产生原生拖拽（图片/链接式），否则会与 pointer 逻辑打架
+      handle.addEventListener('dragstart', function (ev) {
+        ev.preventDefault();
+      });
     });
   }
 
@@ -217,6 +225,10 @@ import { renderQrSvg } from '../shared/qr.js';
       locked: false,
     };
 
+    // 从按下的瞬间就禁掉选中，避免鼠标一按就刷出蓝色选区
+    document.body.classList.add('is-sorting');
+    clearSelection();
+
     try {
       ev.currentTarget.setPointerCapture(ev.pointerId);
     } catch (e) {
@@ -226,6 +238,21 @@ import { renderQrSvg } from '../shared/qr.js';
     document.addEventListener('pointermove', onPointerMove);
     document.addEventListener('pointerup', onPointerUp);
     document.addEventListener('pointercancel', onPointerUp);
+    document.addEventListener('selectstart', preventDuringSort);
+  }
+
+  function preventDuringSort(ev) {
+    if (dragState) ev.preventDefault();
+  }
+
+  /** 清掉可能已经产生的选区（移动端长按有时在 pointerdown 前就选中了） */
+  function clearSelection() {
+    try {
+      var sel = window.getSelection && window.getSelection();
+      if (sel && sel.rangeCount) sel.removeAllRanges();
+    } catch (e) {
+      /* 忽略 */
+    }
   }
 
   function onPointerMove(ev) {
@@ -237,7 +264,6 @@ import { renderQrSvg } from '../shared/qr.js';
       if (Math.abs(ev.clientY - dragState.startY) < 6) return;
       dragState.dragging = true;
       dragState.row.classList.add('is-dragging');
-      document.body.classList.add('is-sorting');
     }
 
     ev.preventDefault();
@@ -262,11 +288,13 @@ import { renderQrSvg } from '../shared/qr.js';
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerup', onPointerUp);
     document.removeEventListener('pointercancel', onPointerUp);
+    document.removeEventListener('selectstart', preventDuringSort);
 
     var drag = dragState;
     dragState = null;
 
-    drag.row.classList.remove('is-dragging');
+    // renderCars 可能已重建节点，这里对 null 保持宽容
+    if (drag.row) drag.row.classList.remove('is-dragging');
     document.body.classList.remove('is-sorting');
     clearDropMarks();
 
