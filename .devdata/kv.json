@@ -1,8 +1,0 @@
-{
-  "movecar": {
-    "rl_login_174uabd_2988378": "{\"n\":1,\"blockedUntil\":0}",
-    "auth_admin": "{\"alg\":\"PBKDF2-SHA256\",\"iter\":120000,\"salt\":\"FK9pwerBcocyrTW1tYwrmg\",\"hash\":\"Q8jtYpvJSyPnkHxgfx1a2wMJ-qO5N0tWcJ4KzW3I_Ok\",\"ver\":1,\"updatedAt\":1793026824794}",
-    "site": "{\"id\":\"9btqwaba\",\"title\":\"临时停车，需挪车请联系我\",\"notice\":\"扫码后可一键呼叫，感谢配合\",\"rev\":3,\"updatedAt\":1793026888257,\"cars\":[{\"id\":\"cmvpdweo1chou\",\"plate\":\"苏E1F75B\",\"phone\":\"13141818662\",\"model\":\"\",\"color\":\"\",\"enabled\":true,\"sort\":1},{\"id\":\"cmvpdwxflyrg8\",\"plate\":\"浙EA18722\",\"phone\":\"15851563198\",\"model\":\"\",\"color\":\"\",\"enabled\":true,\"sort\":2}]}",
-    "rl_write_174uabd_29883781": "{\"n\":2,\"blockedUntil\":0}"
-  }
-}
