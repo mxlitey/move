@@ -111,6 +111,21 @@ export function renderAdminBody() {
     </div>
     <div class="card">
       <div class="card-head">
+        <h2>页面地址</h2>
+      </div>
+      <form id="pageIdForm">
+        <div class="field">
+          <label for="pageIdInput">自定义地址后缀</label>
+          <input class="input" id="pageIdInput" maxlength="16" spellcheck="false" autocapitalize="off"
+                 autocomplete="off" placeholder="如 hft6ug2j">
+          <p class="muted" id="pageIdPreview" style="margin:6px 0 0"></p>
+        </div>
+        <div class="alert" id="pageIdWarn" hidden></div>
+        <button class="btn" type="submit" id="savePageIdBtn">保存地址</button>
+      </form>
+    </div>
+    <div class="card">
+      <div class="card-head">
         <h2>重置页面地址</h2>
       </div>
       <div class="alert" id="resetWarn" hidden></div>

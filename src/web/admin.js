@@ -750,6 +750,61 @@ import { renderQrSvg } from '../shared/qr.js';
       .catch(function (err) { showAlert('resetWarn', err.message); });
   });
 
+  // ------------------------- 自定义页面地址 -------------------------
+
+  function refreshPageIdPreview() {
+    var value = $('pageIdInput').value.trim().toLowerCase();
+    var el = $('pageIdPreview');
+    if (!value) {
+      el.textContent = '';
+      return;
+    }
+    el.textContent = '将发布到：' + location.origin + '/p/' + value;
+  }
+
+  $('pageIdInput').addEventListener('input', function () {
+    // 只允许小写字母和数字，中文输入法或大写自动纠正
+    var cleaned = this.value.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    if (cleaned !== this.value) this.value = cleaned;
+    showAlert('pageIdWarn', '');
+    refreshPageIdPreview();
+  });
+
+  $('pageIdForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var id = $('pageIdInput').value.trim().toLowerCase();
+
+    if (!/^[a-z0-9]{4,16}$/.test(id)) {
+      return showAlert('pageIdWarn', '地址只能包含小写字母和数字，长度 4-16 位');
+    }
+
+    if (id === state.site.id) {
+      return showAlert('pageIdWarn', '与当前地址相同，无需修改');
+    }
+
+    var changing = confirm(
+      '地址将从 /p/' + state.site.id + ' 改为 /p/' + id + '\n\n' +
+      '原有二维码将失效，需要重新下载打印。确定修改吗？'
+    );
+    if (!changing) return;
+
+    var btn = $('savePageIdBtn');
+    btn.disabled = true;
+    showAlert('pageIdWarn', '');
+
+    api('/api/admin/page/id', { method: 'PUT', body: { id: id, rev: state.site.rev } })
+      .then(function (data) {
+        state.site = data.site;
+        state.pageUrl = data.pageUrl;
+        $('pageIdInput').value = data.site.id;
+        refreshPageIdPreview();
+        refreshQr();
+        toast('地址已更新，请重新下载二维码');
+      })
+      .catch(function (err) { showAlert('pageIdWarn', err.message); })
+      .then(function () { btn.disabled = false; });
+  });
+
   // ------------------------- 修改密码 -------------------------
 
   $('passwordForm').addEventListener('submit', function (ev) {
@@ -889,6 +944,8 @@ import { renderQrSvg } from '../shared/qr.js';
 
       $('pageTitle').value = data.site.title || '';
       $('pageNotice').value = data.site.notice || '';
+      $('pageIdInput').value = data.site.id || '';
+      $('pageIdPreview').textContent = data.pageUrl ? '当前地址：' + data.pageUrl : '';
       renderCars();
       refreshQr();
     });

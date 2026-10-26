@@ -9,6 +9,7 @@ import {
   handleSession,
   handleSavePage,
   handleResetId,
+  handleSetPageId,
   handleSaveCar,
   handleDeleteCar,
   handleSetPrimaryPhone,
@@ -83,6 +84,9 @@ export default {
           case '/api/admin/page/reset-id':
             if (method !== 'POST') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
             return handleResetId(env, request);
+          case '/api/admin/page/id':
+            if (method !== 'PUT') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
+            return handleSetPageId(env, request);
           case '/api/admin/car':
             if (method === 'POST') return handleSaveCar(env, request);
             if (method === 'DELETE') return handleDeleteCar(env, request, url);

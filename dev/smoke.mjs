@@ -313,6 +313,52 @@ async function main() {
   r = await call(`/p/${newId}`, { keepCookie: false });
   check('新地址可访问', r.status === 200 && String(r.payload).includes('粤B12345'));
 
+  // 19b. 自定义页面地址：恢复成重置前的地址，让已打印的二维码重新生效
+  r = await call('/api/admin/session');
+  rev = r.payload.data.site.rev;
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: pageId, rev } });
+  check('自定义地址成功', r.status === 200 && r.payload.ok, JSON.stringify(r.payload).slice(0, 120));
+  check('地址已恢复为原值', r.payload.data.site.id === pageId, r.payload.data.site.id);
+  rev = r.payload.data.site.rev;
+
+  r = await call(`/p/${pageId}`, { keepCookie: false });
+  check('恢复后旧地址重新可用', r.status === 200 && String(r.payload).includes('粤B12345'));
+
+  r = await call(`/p/${newId}`, { keepCookie: false });
+  check('恢复后重置出的地址失效', String(r.payload).includes('挪车码无效'));
+
+  // 校验规则
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: 'ab', rev } });
+  check('过短地址被拒绝', r.status === 400);
+
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: 'abc-def', rev } });
+  check('含非法字符的地址被拒绝', r.status === 400);
+
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: 'admin', rev } });
+  check('保留字地址被拒绝', r.status === 400);
+
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: pageId, rev } });
+  check('相同地址不报错', r.status === 200 && r.payload.data.unchanged === true);
+
+  // 大写自动转小写
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: 'HFT6UG2J', rev } });
+  check('大写地址自动转小写', r.status === 200 && r.payload.data.site.id === 'hft6ug2j');
+  rev = r.payload.data.site.rev;
+
+  r = await call('/p/hft6ug2j', { keepCookie: false });
+  check('转小写后的地址可访问', r.status === 200 && String(r.payload).includes('粤B12345'));
+
+  // 未登录不能改地址
+  const keepCookie2 = cookie;
+  cookie = '';
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: 'hack1234', rev } });
+  check('未登录不能改地址', r.status === 401);
+  cookie = keepCookie2;
+
+  // 改回测试用的地址，避免影响后续断言
+  r = await call('/api/admin/page/id', { method: 'PUT', body: { id: pageId, rev } });
+  rev = r.payload.data.site.rev;
+
   // 20. 删除车辆
   r = await call('/api/admin/session');
   rev = r.payload.data.site.rev;

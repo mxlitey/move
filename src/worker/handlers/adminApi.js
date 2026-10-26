@@ -15,6 +15,9 @@ import { validateCarPayload, validatePagePayload, newCarId } from '../lib/valida
 import { readSite, saveSite, emptySite, newPageId } from '../lib/kv.js';
 import { CSS, ADMIN_JS } from '../generated/assets.js';
 
+/** 这些路径片段会被其它路由抢先匹配，不能用作页面地址 */
+const RESERVED_IDS = new Set(['admin', 'demo', 'api', 'robots', 'index', 'static']);
+
 async function readBody(request) {
   try {
     const text = await request.text();
@@ -158,6 +161,41 @@ export async function handleResetId(env, request) {
   if (!written.ok) return fail('REV_CONFLICT', '重置失败，请重试', 409);
 
   return ok({ site: written.site, pageUrl: pageUrl(request, nextId) });
+}
+
+/**
+ * 自定义页面地址后缀。
+ * 用于重置地址后恢复成原来打印出去的地址，让已贴出的二维码重新生效。
+ */
+export async function handleSetPageId(env, request) {
+  if (!(await auth(env, request))) return fail('UNAUTHORIZED', '未登录', 401);
+
+  const rl = await rateLimit(env, 'write', clientIp(request), RULES.write);
+  if (!rl.allowed) return fail('RATE_LIMITED', '操作过于频繁，请稍后再试', 429);
+
+  const body = await readBody(request);
+  if (!body || typeof body.id !== 'string') return fail('INVALID_INPUT', '参数错误');
+
+  const id = body.id.trim().toLowerCase();
+
+  // 与路由 /p/{id} 的匹配规则保持一致
+  if (!/^[a-z0-9]{4,16}$/.test(id)) {
+    return fail('INVALID_INPUT', '地址只能包含小写字母和数字，长度 4-16 位');
+  }
+  // 避免与示例页等固定路径冲突
+  if (RESERVED_IDS.has(id)) {
+    return fail('INVALID_INPUT', '该地址为系统保留，请换一个');
+  }
+
+  const site = await ensureSite(env);
+  if (site.id === id) {
+    return ok({ site, pageUrl: pageUrl(request, id), unchanged: true });
+  }
+
+  const written = await saveSite(env, { ...site, id }, body.rev);
+  if (!written.ok) return fail('REV_CONFLICT', '内容已被其他窗口修改，请刷新后重试', 409);
+
+  return ok({ site: written.site, pageUrl: pageUrl(request, id) });
 }
 
 export async function handleSaveCar(env, request) {
