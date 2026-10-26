@@ -11,6 +11,7 @@ import {
   handleResetId,
   handleSaveCar,
   handleDeleteCar,
+  handleReorderCars,
   handleChangePassword,
 } from './handlers/adminApi.js';
 
@@ -85,6 +86,9 @@ export default {
             if (method === 'POST') return handleSaveCar(env, request);
             if (method === 'DELETE') return handleDeleteCar(env, request, url);
             return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
+          case '/api/admin/cars/order':
+            if (method !== 'POST') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
+            return handleReorderCars(env, request);
           case '/api/admin/password':
             if (method !== 'POST') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
             return handleChangePassword(env, request);

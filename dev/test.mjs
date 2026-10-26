@@ -7,15 +7,20 @@
  * 用法：npm test
  */
 import { spawn } from 'node:child_process';
+import { rm } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8901;
+const TEST_NAMESPACE = 'movecar_test';
+
+// 每次跑测试都从干净的 KV 开始，避免上一轮改过密码或残留车辆
+await rm(path.join(root, '.devdata', `kv-${TEST_NAMESPACE}.json`), { force: true });
 
 const server = spawn(process.execPath, [path.join(root, 'dev', 'server.mjs')], {
   cwd: root,
-  env: { ...process.env, PORT: String(PORT), KV_NAMESPACE: 'movecar_test' },
+  env: { ...process.env, PORT: String(PORT), KV_NAMESPACE: TEST_NAMESPACE },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 

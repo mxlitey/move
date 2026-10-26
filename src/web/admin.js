@@ -149,9 +149,17 @@ import { renderQrSvg } from '../shared/qr.js';
     }
 
     var html = '';
-    state.cars.forEach(function (car) {
+    var canDrag = state.cars.length > 1;
+    state.cars.forEach(function (car, index) {
+      var sub = maskPhone(car.phone) + (car.enabled ? '' : ' · 已在扫码页隐藏');
       html +=
-        '<div class="car-row" data-id="' + escapeHtml(car.id) + '">' +
+        '<div class="car-row' + (canDrag ? ' is-draggable' : '') + '" data-id="' + escapeHtml(car.id) +
+        '" data-index="' + index + '"' + (canDrag ? ' draggable="true"' : '') + '>' +
+        (canDrag
+          ? '<span class="drag-handle" title="按住拖动排序" aria-hidden="true">' +
+            '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7" r="1.5"/><circle cx="15" cy="7" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="17" r="1.5"/><circle cx="15" cy="17" r="1.5"/></svg>' +
+            '</span>'
+          : '') +
         '<label class="switch" title="' + (car.enabled ? '点击在扫码页隐藏' : '点击在扫码页显示') + '">' +
         '<input type="checkbox" data-act="toggle"' + (car.enabled ? ' checked' : '') + ' aria-label="' +
         escapeHtml(car.plate) + ' 是否在扫码页显示">' +
@@ -159,8 +167,7 @@ import { renderQrSvg } from '../shared/qr.js';
         '</label>' +
         '<div class="car-row-main">' +
         '<div class="car-row-plate">' + escapeHtml(car.plate) + '</div>' +
-        '<div class="car-row-sub">' + escapeHtml(maskPhone(car.phone)) +
-        (car.enabled ? '' : ' · 已在扫码页隐藏') + '</div>' +
+        '<div class="car-row-sub">' + escapeHtml(sub) + '</div>' +
         '</div>' +
         '<div class="car-row-ops">' +
         '<button class="icon-btn" data-act="edit" type="button" aria-label="编辑">' +
@@ -172,6 +179,115 @@ import { renderQrSvg } from '../shared/qr.js';
         '</div></div>';
     });
     box.innerHTML = html;
+    bindDragSort();
+  }
+
+  // ------------------------- 拖拽排序 -------------------------
+  //
+  // 用原生 HTML5 拖拽，不引第三方库。仅在列表内部允许拖动，
+  // 松手后拿到新的 id 顺序提交给后端，失败则回滚到原顺序。
+
+  var dragState = null;
+
+  function bindDragSort() {
+    var rows = $('carList').querySelectorAll('.car-row[draggable="true"]');
+
+    Array.prototype.forEach.call(rows, function (row) {
+      row.addEventListener('dragstart', function (ev) {
+        if (dragState && dragState.locked) {
+          ev.preventDefault();
+          return;
+        }
+        dragState = { id: row.getAttribute('data-id'), locked: false };
+        row.classList.add('is-dragging');
+        ev.dataTransfer.effectAllowed = 'move';
+        // Firefox 要求必须 setData 才会触发拖拽
+        try {
+          ev.dataTransfer.setData('text/plain', dragState.id);
+        } catch (e) {
+          /* 忽略 */
+        }
+      });
+
+      row.addEventListener('dragend', function () {
+        row.classList.remove('is-dragging');
+        Array.prototype.forEach.call($('carList').querySelectorAll('.car-row'), function (r) {
+          r.classList.remove('drag-over-top', 'drag-over-bottom');
+        });
+      });
+
+      row.addEventListener('dragover', function (ev) {
+        if (!dragState) return;
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+
+        var rect = row.getBoundingClientRect();
+        var before = ev.clientY - rect.top < rect.height / 2;
+        row.classList.toggle('drag-over-top', before);
+        row.classList.toggle('drag-over-bottom', !before);
+      });
+
+      row.addEventListener('dragleave', function () {
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+
+      row.addEventListener('drop', function (ev) {
+        ev.preventDefault();
+        row.classList.remove('drag-over-top', 'drag-over-bottom');
+        if (!dragState || dragState.locked) return;
+
+        var draggedId = dragState.id;
+        var targetId = row.getAttribute('data-id');
+        if (!draggedId || draggedId === targetId) return;
+
+        var rect = row.getBoundingClientRect();
+        var before = ev.clientY - rect.top < rect.height / 2;
+
+        var ids = state.cars.map(function (c) { return c.id; });
+        var from = ids.indexOf(draggedId);
+        if (from < 0) return;
+        ids.splice(from, 1);
+
+        var to = ids.indexOf(targetId);
+        if (to < 0) return;
+        ids.splice(before ? to : to + 1, 0, draggedId);
+
+        dragState.locked = true;
+        applyOrder(ids);
+      });
+    });
+  }
+
+  function applyOrder(ids) {
+    // 先本地重排，界面立即响应
+    var byId = {};
+    state.cars.forEach(function (c) { byId[c.id] = c; });
+    var next = [];
+    ids.forEach(function (id) {
+      if (byId[id]) next.push(byId[id]);
+    });
+    var previous = state.cars;
+    state.cars = next;
+    renderCars();
+
+    api('/api/admin/cars/order', {
+      method: 'POST',
+      body: { ids: ids, rev: state.site.rev },
+    })
+      .then(function (data) {
+        state.site = data.site;
+        state.cars = data.site.cars || [];
+        renderCars();
+        toast('顺序已保存');
+      })
+      .catch(function (err) {
+        state.cars = previous;
+        renderCars();
+        toast(err.message || '排序保存失败');
+      })
+      .then(function () {
+        dragState = null;
+      });
   }
 
   $('carList').addEventListener('click', function (ev) {
@@ -356,7 +472,6 @@ import { renderQrSvg } from '../shared/qr.js';
     $('qrLink').textContent = state.pageUrl;
     $('qrLink').href = state.pageUrl;
     renderQr($('qrCanvas'), 600);
-    renderQr($('qrPreview'), 600);
     renderQr($('printQr'), 800);
     $('printPlate').textContent = state.cars.length ? state.cars[0].plate : '';
   }
@@ -385,10 +500,13 @@ import { renderQrSvg } from '../shared/qr.js';
     downloadBlob('挪车二维码-' + state.site.id + '.svg', new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
   });
 
-  $('downloadPngBtn').addEventListener('click', function () {
-    toPng(state.pageUrl, 1024)
-      .then(function (blob) { downloadBlob('挪车二维码-' + state.site.id + '.png', blob); })
-      .catch(function () { toast('导出失败，请改用 SVG'); });
+  $('downloadJpgBtn').addEventListener('click', function () {
+    var btn = $('downloadJpgBtn');
+    btn.disabled = true;
+    toImage(state.pageUrl, 1024, 'image/jpeg', 0.92)
+      .then(function (blob) { downloadBlob('挪车二维码-' + state.site.id + '.jpg', blob); })
+      .catch(function () { toast('导出失败，请改用 SVG'); })
+      .then(function () { btn.disabled = false; });
   });
 
   $('printBtn').addEventListener('click', function () {
@@ -396,7 +514,11 @@ import { renderQrSvg } from '../shared/qr.js';
     window.print();
   });
 
-  function toPng(text, size) {
+  /**
+   * SVG → 位图。
+   * JPEG 不支持透明，先铺满白底，否则圆形边缘会变成黑块。
+   */
+  function toImage(text, size, mime, quality) {
     return new Promise(function (resolve, reject) {
       var svg = renderQrSvg(text, { pixelSize: size });
       var blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
@@ -412,10 +534,14 @@ import { renderQrSvg } from '../shared/qr.js';
         ctx.fillRect(0, 0, size, size);
         ctx.drawImage(img, 0, 0, size, size);
         URL.revokeObjectURL(url);
-        canvas.toBlob(function (b) {
-          if (b) resolve(b);
-          else reject(new Error('导出失败'));
-        }, 'image/png');
+        canvas.toBlob(
+          function (b) {
+            if (b) resolve(b);
+            else reject(new Error('导出失败'));
+          },
+          mime,
+          quality
+        );
       };
 
       img.onerror = function () {

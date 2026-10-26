@@ -94,8 +94,8 @@ async function main() {
   // 首页
   r = await call('/', { keepCookie: false });
   check('首页可访问', r.status === 200);
-  check('首页是介绍页而非扫码页', String(r.payload).includes('它怎么工作'));
   check('首页有后台入口', String(r.payload).includes('href="/admin"'));
+  check('首页不再有冗余说明段落', !String(r.payload).includes('它怎么工作'));
 
   // 6. 新增车辆
   r = await call('/api/admin/car', {
@@ -190,6 +190,33 @@ async function main() {
   r = await call(`/p/${pageId}`, { keepCookie: false });
   check('重新打开后扫码页又显示该车', String(r.payload).includes('粤B67890'));
   check('恢复为多车手风琴', String(r.payload).includes('acc-item'));
+
+  // 15b. 拖拽排序接口
+  r = await call('/api/admin/cars/order', {
+    method: 'POST',
+    body: { ids: [car2, car1], rev },
+  });
+  check('排序接口成功', r.status === 200 && r.payload.ok, JSON.stringify(r.payload).slice(0, 120));
+  rev = r.payload.data.site.rev;
+  const reordered = r.payload.data.site.cars;
+  check('排序后第一辆变为原第二辆', reordered[0].id === car2, reordered[0].plate);
+  check('sort 字段已重排', reordered[0].sort === 1 && reordered[1].sort === 2);
+
+  r = await call(`/p/${pageId}`, { keepCookie: false });
+  const afterOrder = String(r.payload);
+  check('扫码页顺序跟随排序', afterOrder.indexOf('粤B67890') < afterOrder.indexOf('粤B12345'));
+  check('排序后默认展开新的第一辆', (afterOrder.match(/acc-item is-open/g) || []).length === 1);
+
+  // 排序接口鉴权
+  const keep = cookie;
+  cookie = '';
+  r = await call('/api/admin/cars/order', { method: 'POST', body: { ids: [] } });
+  check('未登录不能排序', r.status === 401);
+  cookie = keep;
+
+  // 恢复原顺序，便于后续断言
+  r = await call('/api/admin/cars/order', { method: 'POST', body: { ids: [car1, car2], rev } });
+  rev = r.payload.data.site.rev;
 
   // 16. 页面文案
   r = await call('/api/admin/page', {

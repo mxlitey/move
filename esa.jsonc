@@ -1,0 +1,8 @@
+{
+  // ESA Pages 构建配置
+  // 本项目把所有前端资源内联进函数，因此不配置 assets.directory
+  "name": "move",
+  "entry": "./dist/index.js",
+  "installCommand": "npm install",
+  "buildCommand": "npm run build"
+}

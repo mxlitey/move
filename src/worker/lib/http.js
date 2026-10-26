@@ -4,8 +4,9 @@ const BASE_HEADERS = {
   'X-Robots-Tag': 'noindex, nofollow',
 };
 
+// img-src 必须允许 blob:，后台把二维码 SVG 转成位图导出时要走 blob URL
 const CSP =
-  "default-src 'self'; img-src 'self' data:; " +
+  "default-src 'self'; img-src 'self' data: blob:; " +
   "style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; " +
   "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
 

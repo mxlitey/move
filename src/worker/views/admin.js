@@ -16,7 +16,6 @@ export function renderLoginView({ initialized }) {
   <form class="auth-card" id="initForm" novalidate>
     <div class="auth-logo">挪</div>
     <h1>初始化管理员密码</h1>
-    <p class="sub">这是首次使用，请设置一个只属于自己的后台密码。密码不会以明文存储，设置后无法查看，请自行妥善保管。</p>
     <div class="alert" id="authError" hidden></div>
     <div class="field">
       <label for="pwd1">设置密码</label>
@@ -27,7 +26,6 @@ export function renderLoginView({ initialized }) {
       <input class="input" id="pwd2" type="password" autocomplete="new-password" placeholder="请再次输入" required>
     </div>
     <button class="btn btn-block" type="submit" id="initBtn">完成初始化</button>
-    <p class="muted" style="margin:16px 0 0;text-align:center">初始化完成后即可登录后台录入车辆</p>
   </form>
 </div>`;
   }
@@ -36,7 +34,6 @@ export function renderLoginView({ initialized }) {
   <form class="auth-card" id="loginForm" novalidate>
     <div class="auth-logo">挪</div>
     <h1>后台登录</h1>
-    <p class="sub">请输入管理员密码，登录后可管理车辆与二维码。</p>
     <div class="alert" id="authError" hidden></div>
     <div class="field">
       <label for="pwd">管理员密码</label>
@@ -52,10 +49,7 @@ export function renderAdminBody() {
   <header class="topbar">
     <div class="brand">
       <div class="brand-mark">挪</div>
-      <div>
-        <h1>挪车码后台</h1>
-        <p>车辆与二维码管理</p>
-      </div>
+      <h1>挪车码后台</h1>
     </div>
     <button class="btn btn-ghost btn-sm" id="logoutBtn" type="button">${ICONS.logout}<span>退出</span></button>
   </header>
@@ -70,10 +64,7 @@ export function renderAdminBody() {
   <section class="panel active" id="panel-cars">
     <div class="card">
       <div class="card-head">
-        <div>
-          <h2>车辆列表</h2>
-          <p class="desc">左侧开关控制是否在扫码页显示；扫码页按此顺序展示</p>
-        </div>
+        <h2>车辆列表</h2>
         <button class="btn btn-sm" id="addCarBtn" type="button">${ICONS.plus}<span>添加车辆</span></button>
       </div>
       <div id="carList"><div class="empty">加载中…</div></div>
@@ -83,37 +74,18 @@ export function renderAdminBody() {
   <section class="panel" id="panel-qr">
     <div class="card">
       <div class="card-head">
-        <div>
-          <h2>挪车二维码</h2>
-          <p class="desc">圆形样式，中间为二维码矩阵。建议打印直径不小于 3cm</p>
-        </div>
+        <h2>挪车二维码</h2>
       </div>
       <div class="qr-wrap">
         <div class="qr-canvas" id="qrCanvas"></div>
         <div class="qr-side">
-          <div class="muted">扫码打开的页面地址</div>
           <a class="qr-link" id="qrLink" href="#" target="_blank" rel="noopener"></a>
           <div class="btn-row">
             <button class="btn btn-sm" id="downloadSvgBtn" type="button">下载 SVG</button>
-            <button class="btn btn-sm" id="downloadPngBtn" type="button">下载 PNG</button>
+            <button class="btn btn-sm" id="downloadJpgBtn" type="button">下载 JPG</button>
             <button class="btn btn-sm btn-ghost" id="copyLinkBtn" type="button">${ICONS.copy}<span>复制链接</span></button>
             <button class="btn btn-sm btn-ghost" id="printBtn" type="button">打印车贴</button>
           </div>
-        </div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-head">
-        <div>
-          <h2>扫码预览</h2>
-          <p class="desc">在手机上扫码即可查看真实效果，无需先打印</p>
-        </div>
-      </div>
-      <div class="qr-wrap">
-        <div class="qr-canvas" id="qrPreview"></div>
-        <div class="qr-side">
-          <p class="muted" style="margin:0 0 8px">贴车之前建议先用手机扫一次，确认能正常打开并拨号。</p>
-          <p class="muted" style="margin:0">二维码与页面地址绑定，重置页面地址后旧码立即失效。</p>
         </div>
       </div>
     </div>
@@ -122,10 +94,7 @@ export function renderAdminBody() {
   <section class="panel" id="panel-settings">
     <div class="card">
       <div class="card-head">
-        <div>
-          <h2>页面文案</h2>
-          <p class="desc">显示在扫码页顶部，帮助对方快速判断</p>
-        </div>
+        <h2>页面文案</h2>
       </div>
       <form id="settingsForm">
         <div class="field">
@@ -141,10 +110,7 @@ export function renderAdminBody() {
     </div>
     <div class="card">
       <div class="card-head">
-        <div>
-          <h2>重置页面地址</h2>
-          <p class="desc">重置后旧二维码立即失效，需重新下载打印</p>
-        </div>
+        <h2>重置页面地址</h2>
       </div>
       <div class="alert" id="resetWarn" hidden></div>
       <button class="btn btn-danger btn-sm" id="resetIdBtn" type="button">重置并生成新二维码</button>
@@ -154,10 +120,7 @@ export function renderAdminBody() {
   <section class="panel" id="panel-account">
     <div class="card">
       <div class="card-head">
-        <div>
-          <h2>修改密码</h2>
-          <p class="desc">修改后所有已登录的设备需要重新登录</p>
-        </div>
+        <h2>修改密码</h2>
       </div>
       <form id="passwordForm">
         <div class="field">

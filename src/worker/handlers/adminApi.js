@@ -210,6 +210,40 @@ export async function handleDeleteCar(env, request, url) {
   return ok({ site: written.site });
 }
 
+/** 拖拽排序：按传入的 id 顺序重排 sort 字段 */
+export async function handleReorderCars(env, request) {
+  if (!(await auth(env, request))) return fail('UNAUTHORIZED', '未登录', 401);
+
+  const body = await readBody(request);
+  if (!body || !Array.isArray(body.ids)) return fail('INVALID_INPUT', '参数错误');
+
+  const site = await ensureSite(env);
+  const cars = Array.isArray(site.cars) ? site.cars : [];
+
+  // 只接受已存在的 id，缺失的保持原有相对顺序追加到末尾，避免数据丢失
+  const ids = body.ids.filter((id) => typeof id === 'string');
+  const map = new Map(cars.map((c) => [c.id, c]));
+  const ordered = [];
+  for (const id of ids) {
+    const car = map.get(id);
+    if (car) {
+      ordered.push(car);
+      map.delete(id);
+    }
+  }
+  for (const car of cars) {
+    if (map.has(car.id)) ordered.push(car);
+  }
+
+  ordered.forEach((car, i) => {
+    car.sort = i + 1;
+  });
+
+  const written = await saveSite(env, { ...site, cars: ordered }, body.rev);
+  if (!written.ok) return fail('REV_CONFLICT', '内容已被其他窗口修改，请刷新后重试', 409);
+  return ok({ site: written.site });
+}
+
 export async function handleChangePassword(env, request) {
   if (!(await auth(env, request))) return fail('UNAUTHORIZED', '未登录', 401);
 
