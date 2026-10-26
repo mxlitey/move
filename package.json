@@ -1,0 +1,15 @@
+{
+  "name": "move-car-qr",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "node dev/server.mjs",
+    "build": "node build/build.mjs",
+    "smoke": "node dev/smoke.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "qrcode-generator": "^1.4.4"
+  }
+}
