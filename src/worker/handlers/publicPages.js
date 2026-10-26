@@ -7,16 +7,41 @@ import { renderQrSvg } from '../../shared/qr.js';
 import { CSS, PARK_JS } from '../generated/assets.js';
 
 /** 首页：项目介绍 + 管理后台入口 */
-export async function handleHome(env) {
-  const site = await readSite(env);
-
+export async function handleHome() {
   return documentShell({
     title: '挪车码 · 扫码联系车主',
     css: CSS,
     script: '',
     bodyClass: 'home-body',
-    body: renderHomeBody({ siteId: site ? site.id : '' }),
+    body: renderHomeBody(),
     cache: 'public, max-age=60',
+  });
+}
+
+/**
+ * 示例扫码页。
+ * 使用固定的虚构车辆与号码，与站点真实数据完全无关，
+ * 也不会调用取号接口，避免泄露或误拨任何真实号码。
+ */
+export function handleDemoPage() {
+  const demo = {
+    id: 'demo0000',
+    title: '临时停车，需挪车请联系我',
+    notice: '扫码后可一键呼叫，感谢配合',
+    cars: [
+      { id: 'demo1', plate: '京A·12345', phone: '13800000001', enabled: true, sort: 1 },
+      { id: 'demo2', plate: '沪B·67890', phone: '13800000002', enabled: true, sort: 2 },
+      { id: 'demo3', plate: '粤C·24680', phone: '13800000003', enabled: true, sort: 3 },
+    ],
+  };
+
+  return documentShell({
+    title: '示例挪车码',
+    css: CSS,
+    script: PARK_JS,
+    bodyClass: 'park-body',
+    body: renderParkBody(demo, { demo: true }),
+    cache: 'public, max-age=300',
   });
 }
 

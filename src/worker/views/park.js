@@ -18,8 +18,10 @@ function callButton(pageId, carId) {
  * 扫码页。
  * 单车：直接展示车牌与呼叫按钮。
  * 多车：手风琴，默认展开第一辆，展开项内嵌呼叫按钮。
+ *
+ * demo 为 true 时使用假数据，号码不走接口，仅用于首页的示例演示。
  */
-export function renderParkBody(page) {
+export function renderParkBody(page, { demo = false } = {}) {
   const cars = (page.cars || [])
     .filter((c) => c.enabled)
     .sort((a, b) => (a.sort || 0) - (b.sort || 0));
@@ -54,6 +56,7 @@ export function renderParkBody(page) {
         .join('');
 
   return `<main class="park">
+  ${demo ? '<div class="demo-tip">示例页面，数据均为虚构，拨号不会真实呼出</div>' : ''}
   <header class="park-hero">
     <span class="park-badge">挪车码</span>
     <h1>${escapeHtml(page.title)}</h1>
@@ -70,6 +73,14 @@ export function renderParkBody(page) {
 <script id="parkState" type="application/json">${safeJsonForScript({
     pageId: page.id,
     single,
+    demo,
+    // 示例页直接用内置的虚构号码，不访问取号接口
+    phones: demo
+      ? cars.reduce((acc, c) => {
+          acc[c.id] = c.phone;
+          return acc;
+        }, {})
+      : undefined,
     cars: cars.map((c) => ({ id: c.id, plate: c.plate })),
   })}</script>`;
 }

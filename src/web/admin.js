@@ -154,7 +154,7 @@ import { renderQrSvg } from '../shared/qr.js';
       var sub = maskPhone(car.phone) + (car.enabled ? '' : ' · 已在扫码页隐藏');
       html +=
         '<div class="car-row' + (canDrag ? ' is-draggable' : '') + '" data-id="' + escapeHtml(car.id) +
-        '" data-index="' + index + '"' + (canDrag ? ' draggable="true"' : '') + '>' +
+        '" data-index="' + index + '">' +
         (canDrag
           ? '<span class="drag-handle" title="按住拖动排序" aria-hidden="true">' +
             '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7" r="1.5"/><circle cx="15" cy="7" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="17" r="1.5"/><circle cx="15" cy="17" r="1.5"/></svg>' +
@@ -184,77 +184,122 @@ import { renderQrSvg } from '../shared/qr.js';
 
   // ------------------------- 拖拽排序 -------------------------
   //
-  // 用原生 HTML5 拖拽，不引第三方库。仅在列表内部允许拖动，
-  // 松手后拿到新的 id 顺序提交给后端，失败则回滚到原顺序。
+  // 用 Pointer Events 而不是 HTML5 拖拽：后者在移动端浏览器基本不触发。
+  // Pointer Events 一套代码同时覆盖鼠标、触屏和手写笔。
+  // 只有按住左侧抓手才进入拖拽，避免和开关、编辑按钮冲突。
 
   var dragState = null;
 
   function bindDragSort() {
-    var rows = $('carList').querySelectorAll('.car-row[draggable="true"]');
+    var list = $('carList');
+    var handles = list.querySelectorAll('.drag-handle');
 
-    Array.prototype.forEach.call(rows, function (row) {
-      row.addEventListener('dragstart', function (ev) {
-        if (dragState && dragState.locked) {
-          ev.preventDefault();
-          return;
-        }
-        dragState = { id: row.getAttribute('data-id'), locked: false };
-        row.classList.add('is-dragging');
-        ev.dataTransfer.effectAllowed = 'move';
-        // Firefox 要求必须 setData 才会触发拖拽
-        try {
-          ev.dataTransfer.setData('text/plain', dragState.id);
-        } catch (e) {
-          /* 忽略 */
-        }
-      });
+    Array.prototype.forEach.call(handles, function (handle) {
+      handle.addEventListener('pointerdown', onHandleDown);
+    });
+  }
 
-      row.addEventListener('dragend', function () {
-        row.classList.remove('is-dragging');
-        Array.prototype.forEach.call($('carList').querySelectorAll('.car-row'), function (r) {
-          r.classList.remove('drag-over-top', 'drag-over-bottom');
-        });
-      });
+  function onHandleDown(ev) {
+    // 只响应主键（鼠标左键 / 单指）
+    if (ev.button !== undefined && ev.button !== 0) return;
 
-      row.addEventListener('dragover', function (ev) {
-        if (!dragState) return;
-        ev.preventDefault();
-        ev.dataTransfer.dropEffect = 'move';
+    var row = ev.currentTarget.closest('.car-row');
+    if (!row) return;
 
-        var rect = row.getBoundingClientRect();
-        var before = ev.clientY - rect.top < rect.height / 2;
-        row.classList.toggle('drag-over-top', before);
-        row.classList.toggle('drag-over-bottom', !before);
-      });
+    ev.preventDefault();
 
-      row.addEventListener('dragleave', function () {
-        row.classList.remove('drag-over-top', 'drag-over-bottom');
-      });
+    dragState = {
+      id: row.getAttribute('data-id'),
+      row: row,
+      pointerId: ev.pointerId,
+      startY: ev.clientY,
+      dragging: false,
+      locked: false,
+    };
 
-      row.addEventListener('drop', function (ev) {
-        ev.preventDefault();
-        row.classList.remove('drag-over-top', 'drag-over-bottom');
-        if (!dragState || dragState.locked) return;
+    try {
+      ev.currentTarget.setPointerCapture(ev.pointerId);
+    } catch (e) {
+      /* 忽略 */
+    }
 
-        var draggedId = dragState.id;
-        var targetId = row.getAttribute('data-id');
-        if (!draggedId || draggedId === targetId) return;
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerUp);
+  }
 
-        var rect = row.getBoundingClientRect();
-        var before = ev.clientY - rect.top < rect.height / 2;
+  function onPointerMove(ev) {
+    if (!dragState || dragState.locked) return;
+    if (ev.pointerId !== dragState.pointerId) return;
 
-        var ids = state.cars.map(function (c) { return c.id; });
-        var from = ids.indexOf(draggedId);
-        if (from < 0) return;
-        ids.splice(from, 1);
+    // 移动超过 6px 才算拖拽，避免误触
+    if (!dragState.dragging) {
+      if (Math.abs(ev.clientY - dragState.startY) < 6) return;
+      dragState.dragging = true;
+      dragState.row.classList.add('is-dragging');
+      document.body.classList.add('is-sorting');
+    }
 
-        var to = ids.indexOf(targetId);
-        if (to < 0) return;
-        ids.splice(before ? to : to + 1, 0, draggedId);
+    ev.preventDefault();
 
-        dragState.locked = true;
-        applyOrder(ids);
-      });
+    // 触摸拖动时阻止页面滚动
+    var target = rowUnderPoint(ev.clientY);
+    clearDropMarks();
+
+    if (!target || target === dragState.row) return;
+
+    dragState.targetId = target.getAttribute('data-id');
+    var rect = target.getBoundingClientRect();
+    var before = ev.clientY < rect.top + rect.height / 2;
+    dragState.before = before;
+    target.classList.add(before ? 'drag-over-top' : 'drag-over-bottom');
+  }
+
+  function onPointerUp(ev) {
+    if (!dragState) return;
+    if (ev.pointerId !== undefined && ev.pointerId !== dragState.pointerId) return;
+
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    document.removeEventListener('pointercancel', onPointerUp);
+
+    var drag = dragState;
+    dragState = null;
+
+    drag.row.classList.remove('is-dragging');
+    document.body.classList.remove('is-sorting');
+    clearDropMarks();
+
+    if (!drag.dragging || !drag.targetId || drag.targetId === drag.id) return;
+
+    var ids = state.cars.map(function (c) { return c.id; });
+    var from = ids.indexOf(drag.id);
+    if (from < 0) return;
+    ids.splice(from, 1);
+
+    var to = ids.indexOf(drag.targetId);
+    if (to < 0) return;
+    ids.splice(drag.before ? to : to + 1, 0, drag.id);
+
+    applyOrder(ids);
+  }
+
+  /** 找出当前指针下方的车辆行，忽略被拖拽的那一行 */
+  function rowUnderPoint(y) {
+    var rows = $('carList').querySelectorAll('.car-row');
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      if (row === (dragState && dragState.row)) continue;
+      var rect = row.getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) return row;
+    }
+    return null;
+  }
+
+  function clearDropMarks() {
+    var rows = $('carList').querySelectorAll('.car-row');
+    Array.prototype.forEach.call(rows, function (r) {
+      r.classList.remove('drag-over-top', 'drag-over-bottom');
     });
   }
 
@@ -284,9 +329,6 @@ import { renderQrSvg } from '../shared/qr.js';
         state.cars = previous;
         renderCars();
         toast(err.message || '排序保存失败');
-      })
-      .then(function () {
-        dragState = null;
       });
   }
 
@@ -498,6 +540,15 @@ import { renderQrSvg } from '../shared/qr.js';
   $('downloadSvgBtn').addEventListener('click', function () {
     var svg = renderQrSvg(state.pageUrl, { pixelSize: 1024 });
     downloadBlob('挪车二维码-' + state.site.id + '.svg', new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+  });
+
+  $('downloadPngBtn').addEventListener('click', function () {
+    var btn = $('downloadPngBtn');
+    btn.disabled = true;
+    toImage(state.pageUrl, 1024, 'image/png')
+      .then(function (blob) { downloadBlob('挪车二维码-' + state.site.id + '.png', blob); })
+      .catch(function () { toast('导出失败，请改用 SVG'); })
+      .then(function () { btn.disabled = false; });
   });
 
   $('downloadJpgBtn').addEventListener('click', function () {

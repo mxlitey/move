@@ -62,8 +62,15 @@
     return phone.slice(0, 3) + '****' + phone.slice(-4);
   }
 
-  // 页面 HTML 中不含手机号，点击时才向后端取号
+  // 页面 HTML 中不含手机号，点击时才向后端取号。
+  // 示例页（demo）用内置的虚构号码，不请求接口。
   function fetchPhone(carId) {
+    if (state.demo) {
+      var fake = (state.phones || {})[carId];
+      if (!fake) return Promise.reject(new Error('示例数据缺失'));
+      return Promise.resolve({ phone: fake, plate: '' });
+    }
+
     return fetch('/api/p/' + encodeURIComponent(state.pageId) + '/contact', {
       method: 'POST',
       headers: {
@@ -85,7 +92,12 @@
     });
   }
 
+  // 示例页不真的拨号，只提示
   function dial(phone) {
+    if (state.demo) {
+      toast('示例页面不会真的拨号');
+      return;
+    }
     window.location.href = 'tel:' + phone;
   }
 

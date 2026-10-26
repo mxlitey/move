@@ -92,10 +92,31 @@ async function main() {
   check('清空历史车辆', (site.cars || []).length === 0, `剩余 ${(site.cars || []).length}`);
 
   // 首页
+  const realId = site.id;
   r = await call('/', { keepCookie: false });
+  const homeHtml = String(r.payload);
   check('首页可访问', r.status === 200);
-  check('首页有后台入口', String(r.payload).includes('href="/admin"'));
-  check('首页不再有冗余说明段落', !String(r.payload).includes('它怎么工作'));
+  check('首页有后台入口', homeHtml.includes('href="/admin"'));
+  check('首页不再有冗余说明段落', !homeHtml.includes('它怎么工作'));
+  check('首页示例链接指向 /demo', homeHtml.includes('href="/demo"'));
+  check('首页不暴露真实站点地址', !homeHtml.includes(`/p/${realId}`));
+
+  // 示例页必须用固定假数据，不能指向真实站点
+  r = await call('/demo', { keepCookie: false });
+  const demoHtml = String(r.payload);
+  check('示例页可访问', r.status === 200);
+  check('示例页用虚构车牌', demoHtml.includes('京A·12345'));
+  check('示例页有示例提示条', demoHtml.includes('demo-tip'));
+  check('示例页标记 demo 模式', demoHtml.includes('"demo":true'));
+  check('示例页不引用真实站点 ID', !demoHtml.includes(`/p/${realId}`));
+
+  // 后台页面结构：下载按钮应为 SVG + PNG + JPG 三种
+  r = await call('/admin');
+  const shellHtml = String(r.payload);
+  check('后台有 PNG 下载按钮', shellHtml.includes('downloadPngBtn'));
+  check('后台有 JPG 下载按钮', shellHtml.includes('downloadJpgBtn'));
+  check('后台有 SVG 下载按钮', shellHtml.includes('downloadSvgBtn'));
+  check('扫码预览卡片已移除', !shellHtml.includes('qrPreview'));
 
   // 6. 新增车辆
   r = await call('/api/admin/car', {

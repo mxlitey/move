@@ -82,6 +82,7 @@ export function renderAdminBody() {
           <a class="qr-link" id="qrLink" href="#" target="_blank" rel="noopener"></a>
           <div class="btn-row">
             <button class="btn btn-sm" id="downloadSvgBtn" type="button">下载 SVG</button>
+            <button class="btn btn-sm" id="downloadPngBtn" type="button">下载 PNG</button>
             <button class="btn btn-sm" id="downloadJpgBtn" type="button">下载 JPG</button>
             <button class="btn btn-sm btn-ghost" id="copyLinkBtn" type="button">${ICONS.copy}<span>复制链接</span></button>
             <button class="btn btn-sm btn-ghost" id="printBtn" type="button">打印车贴</button>

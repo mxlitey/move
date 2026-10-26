@@ -126,6 +126,21 @@ button { font: inherit; color: inherit; }
   gap: 18px;
 }
 
+/* 示例页顶部提示条 */
+.demo-tip {
+  padding: 9px 14px;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, .14);
+  color: #b45309;
+  font-size: 12.5px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .demo-tip { background: rgba(245, 158, 11, .18); color: #fbbf24; }
+}
+
 .park-hero { text-align: center; padding: 8px 8px 0; }
 
 .park-badge {
@@ -517,20 +532,36 @@ textarea.input { height: auto; padding: 12px 14px; line-height: 1.6; resize: ver
 .car-row.is-draggable:active { cursor: grabbing; }
 .car-row.is-draggable .icon-btn,
 .car-row.is-draggable .switch { cursor: pointer; }
-.car-row.is-dragging { opacity: .4; }
+.car-row.is-dragging {
+  opacity: .45;
+  background: var(--bg);
+  border-radius: 8px;
+  /* 保持高度，避免拖起后列表跳动导致落点判断漂移 */
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* 拖拽期间禁用整页滚动与文本选中，触屏体验才跟手 */
+body.is-sorting { user-select: none; -webkit-user-select: none; }
+body.is-sorting .car-row { touch-action: none; }
 
 .car-row.drag-over-top { box-shadow: inset 0 2px 0 var(--brand); }
 .car-row.drag-over-bottom { box-shadow: inset 0 -2px 0 var(--brand); }
 
 .drag-handle {
-  flex: 0 0 16px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 40px;
+  margin-left: -8px;
   display: grid;
   place-items: center;
   color: var(--ink-3);
   cursor: grab;
+  /* 关键：让浏览器把触摸手势交给 JS，否则一拖就滚动页面 */
+  touch-action: none;
 }
 
 .drag-handle svg { width: 16px; height: 16px; }
+.drag-handle:active { color: var(--brand); }
 
 .car-row-main { flex: 1; min-width: 0; }
 .car-row-plate {

@@ -1,5 +1,5 @@
 import { fail } from './lib/http.js';
-import { handleHome, handleParkPage, handleQrSvg, handleRobots } from './handlers/publicPages.js';
+import { handleHome, handleDemoPage, handleParkPage, handleQrSvg, handleRobots } from './handlers/publicPages.js';
 import { handleContact } from './handlers/publicApi.js';
 import {
   handleAdminPage,
@@ -100,7 +100,13 @@ export default {
       // ---------- 首页 ----------
       if (path === '/' || path === '/index.html') {
         if (method !== 'GET') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
-        return handleHome(env);
+        return handleHome();
+      }
+
+      // ---------- 示例扫码页（固定假数据） ----------
+      if (path === '/demo') {
+        if (method !== 'GET') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
+        return handleDemoPage();
       }
 
       return fail('NOT_FOUND', '页面不存在', 404);
