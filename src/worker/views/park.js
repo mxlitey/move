@@ -9,6 +9,9 @@ const CHEVRON = `<svg class="acc-chevron" viewBox="0 0 24 24" fill="none" stroke
 <path d="m6 9 6 6 6-6"/>
 </svg>`;
 
+// 页面底部的海浪装饰，横向无缝平铺
+const SEA_FOOTER = '<div class="park-sea" aria-hidden="true"></div>';
+
 function callButton(pageId, carId) {
   return `<button type="button" class="call-btn" data-call-id="${escapeHtml(carId)}" data-page-id="${escapeHtml(pageId)}">
   ${CALL_ICON}<span class="call-label">一键呼叫车主</span>
@@ -72,6 +75,7 @@ export function renderParkBody(page, { demo = false } = {}) {
 
   <p class="park-foot">本二维码由车主本人贴置于车内<br>如非挪车需要，请勿打扰</p>
 </main>
+${SEA_FOOTER}
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script id="parkState" type="application/json">${safeJsonForScript({
     pageId: page.id,
@@ -99,7 +103,8 @@ export function renderEmptyBody(page, message) {
     <h2>${escapeHtml(message)}</h2>
     <p>该挪车码当前不可用。若您确实需要挪车，请联系停车场管理人员协助。</p>
   </div>
-</main>`;
+</main>
+${SEA_FOOTER}`;
 }
 
 export function renderNotFoundBody() {
@@ -113,5 +118,6 @@ export function renderNotFoundBody() {
     <h2>挪车码无效</h2>
     <p>链接可能已失效或二维码有误，请核对后重试。</p>
   </div>
-</main>`;
+</main>
+${SEA_FOOTER}`;
 }

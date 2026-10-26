@@ -4,7 +4,7 @@ import { htmlPage } from './http.js';
  * 统一的 HTML 文档外壳。
  * 所有样式与脚本在构建期被内联成字符串，最终只有一个函数文件。
  */
-export function documentShell({ title, css, script, bodyClass, body, cache = 'no-cache' }) {
+export function documentShell({ title, css, script, bodyClass, body, cache = 'no-cache', themeColor = '#1677ff' }) {
   const html = `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -12,7 +12,7 @@ export function documentShell({ title, css, script, bodyClass, body, cache = 'no
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="format-detection" content="telephone=no">
-<meta name="theme-color" content="#1677ff">
+<meta name="theme-color" content="${escapeHtml(themeColor)}">
 <title>${escapeHtml(title)}</title>
 <style>${css}</style>
 </head>

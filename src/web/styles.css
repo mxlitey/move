@@ -106,93 +106,147 @@ button { font: inherit; color: inherit; }
   .home-cta .btn { width: 100%; }
 }
 
-/* ============================ 扫码页 ============================ */
+/* ============================ 扫码页（岛屿风格） ============================ */
 
+/*
+ * 设计语言参考 animal-island-ui：暖羊皮纸底色、棕色文字（不用纯黑）、
+ * 薄荷青主色、大圆角药丸控件、仅底部一层的 3D 按键投影。
+ * 所有令牌都挂在 .park-body 上，后台页面不受影响。
+ */
 .park-body {
+  --island-bg: #7dc395;
+  /* 绿色底纹上直接排字的深棕（对比度足够，不用纯黑） */
+  --island-ink-on-bg: #4a3a28;
+  --island-text-on-bg: #4f3f2c;
+  --island-content: rgb(247, 243, 223);
+  --island-input: #fffbe7;
+  --island-ink: #794f27;
+  --island-text: #725d42;
+  --island-muted: #8a7b66;
+  --island-line: #c4b89e;
+  --island-line-soft: #d4c9b4;
+  --island-primary: #19c8b9;
+  --island-primary-hover: #3dd4c6;
+  --island-primary-active: #11a89b;
+  --island-primary-bg: #e6f9f6;
+  --island-focus: #ffcc00;
+  --island-shadow: #bdaea0;
+  --island-ease: cubic-bezier(.4, 0, .2, 1);
+
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   min-height: 100%;
-  background:
-    radial-gradient(1200px 400px at 50% -200px, rgba(22, 119, 255, .16), transparent 70%),
-    var(--bg);
+  background-color: var(--island-bg);
+  background-image: url(/assets/bg.webp);
+  background-repeat: repeat;
+  background-size: auto;
+  animation: island-bg-scroll 80s linear infinite;
+  color: var(--island-text);
+  font-family: Nunito, "Noto Sans SC", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 呼应动物岛风格的缓慢平铺背景滚动 */
+@keyframes island-bg-scroll {
+  from { background-position: 100% 0%; }
+  to { background-position: 0% 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .park-body { animation: none; }
 }
 
 .park {
   width: 100%;
   max-width: 460px;
-  padding: 28px 18px calc(28px + var(--safe-b));
+  padding: 24px 18px 28px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
+  flex: 1 0 auto;
+}
+
+/* 页脚海浪装饰：水平无缝平铺，贴在页面最底部 */
+.park-sea {
+  width: 100%;
+  height: 80px;
+  flex: 0 0 auto;
+  margin-top: auto;
+  background: url(/assets/sea.svg) left bottom / auto 100% repeat-x;
+}
+
+@media (max-width: 560px) {
+  .park-sea { height: 62px; }
 }
 
 /* 示例页顶部提示条 */
-.demo-tip {
-  padding: 9px 14px;
-  border-radius: 10px;
-  background: rgba(245, 158, 11, .14);
-  color: #b45309;
+.park-body .demo-tip {
+  padding: 9px 16px;
+  border: 2px dashed #e0c56a;
+  border-radius: 14px;
+  background: #fdf7e2;
+  color: #8a6a12;
   font-size: 12.5px;
-  line-height: 1.5;
+  line-height: 1.55;
+  font-weight: 500;
   text-align: center;
 }
 
-@media (prefers-color-scheme: dark) {
-  .demo-tip { background: rgba(245, 158, 11, .18); color: #fbbf24; }
+.park-hero {
+  position: relative;
+  text-align: center;
+  padding: 12px 6px 0;
 }
 
-.park-hero { text-align: center; padding: 8px 8px 0; }
-
+/* 燕尾绶带式标签 */
 .park-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 12px;
-  border-radius: 999px;
-  background: rgba(22, 119, 255, .12);
-  color: var(--brand-strong);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: .04em;
-}
-
-@media (prefers-color-scheme: dark) {
-  .park-badge { color: #6ba6ff; }
+  display: inline-block;
+  padding: 7px 24px;
+  background: var(--island-primary);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%, 10px 50%);
 }
 
 .park-hero h1 {
-  margin: 14px 0 8px;
-  font-size: 22px;
+  margin: 16px 0 8px;
+  font-size: 23px;
   line-height: 1.4;
-  font-weight: 700;
-  letter-spacing: -.01em;
+  font-weight: 800;
+  letter-spacing: .01em;
+  color: var(--island-ink-on-bg);
 }
 
 .park-hero p {
   margin: 0;
-  color: var(--ink-2);
-  font-size: 14px;
-  line-height: 1.6;
+  color: var(--island-text-on-bg);
+  font-size: 13.5px;
+  line-height: 1.65;
 }
 
 .park-cars {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* 手风琴：多车时一次只展开一辆 */
 .acc-item {
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  border: 2px solid var(--island-line);
+  border-radius: 20px;
+  background: var(--island-content);
   overflow: hidden;
-  transition: border-color .18s;
+  transition: border-color .3s var(--island-ease), background-color .3s var(--island-ease);
 }
 
-.acc-item.is-open { border-color: var(--brand); }
+.acc-item.is-open {
+  border-color: var(--island-primary);
+  background: var(--island-content);
+}
 
 .acc-head {
   display: flex;
@@ -200,7 +254,7 @@ button { font: inherit; color: inherit; }
   justify-content: space-between;
   gap: 12px;
   width: 100%;
-  padding: 16px;
+  padding: 14px 16px;
   border: 0;
   background: transparent;
   text-align: left;
@@ -209,28 +263,41 @@ button { font: inherit; color: inherit; }
 
 .acc-head-static { cursor: default; }
 
+/* 车牌做成一块内嵌的象牙色小牌 */
 .acc-plate {
-  font-size: 18px;
-  font-weight: 700;
-  letter-spacing: .06em;
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border: 2px solid var(--island-line-soft);
+  border-radius: 12px;
+  background: var(--island-input);
+  color: var(--island-ink);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: .07em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
+.acc-item.is-open .acc-plate { border-color: var(--island-primary); }
+
 .acc-chevron {
-  width: 20px;
-  height: 20px;
-  flex: 0 0 20px;
-  color: var(--ink-3);
-  transition: transform .2s;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  color: var(--island-muted);
+  transition: transform .3s var(--island-ease), color .3s var(--island-ease);
 }
 
-.acc-item.is-open .acc-chevron { transform: rotate(180deg); color: var(--brand); }
+.acc-item.is-open .acc-chevron {
+  transform: rotate(180deg);
+  color: var(--island-primary);
+}
 
 .acc-panel {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows .22s ease;
+  transition: grid-template-rows .3s var(--island-ease);
 }
 
 .acc-item.is-open .acc-panel { grid-template-rows: 1fr; }
@@ -248,71 +315,106 @@ button { font: inherit; color: inherit; }
 
 .park-actions { margin-top: auto; padding-top: 6px; }
 
+/* 主行动按钮：药丸形 + 底部单层 3D 投影，按下时整体下沉 */
 .call-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
   width: 100%;
-  height: 58px;
+  height: 56px;
+  padding: 0 20px;
   border: 0;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #1fbb62, var(--call));
+  border-radius: 50px;
+  background: var(--island-primary);
   color: #fff;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   letter-spacing: .04em;
-  box-shadow: 0 10px 24px rgba(22, 163, 74, .32);
+  box-shadow: 0 5px 0 0 var(--island-shadow);
   cursor: pointer;
-  transition: transform .14s, box-shadow .14s, opacity .14s;
+  transition: background-color .25s var(--island-ease), box-shadow .15s var(--island-ease),
+    transform .15s var(--island-ease);
 }
 
-.call-btn:active { transform: scale(.98); box-shadow: 0 6px 16px rgba(22, 163, 74, .3); }
-.call-btn[disabled] { opacity: .6; cursor: default; transform: none; }
+.call-btn:hover {
+  background: var(--island-primary-hover);
+  box-shadow: 0 6px 0 0 var(--island-shadow);
+  transform: translateY(-1px);
+}
 
-.call-btn svg { width: 22px; height: 22px; flex: 0 0 22px; }
+.call-btn:active {
+  background: var(--island-primary-active);
+  box-shadow: 0 1px 0 0 var(--island-shadow);
+  transform: translateY(3px);
+}
+
+.call-btn[disabled] {
+  background: #f0ece2;
+  color: #c4b89e;
+  box-shadow: 0 3px 0 0 var(--island-line-soft);
+  transform: none;
+  cursor: default;
+}
+
+.call-btn:focus-visible { outline: 3px solid var(--island-focus); outline-offset: 3px; }
+
+.call-btn svg { width: 20px; height: 20px; flex: 0 0 20px; }
 
 .park-hint {
-  margin: 12px 0 0;
+  margin: 8px 0 0;
   text-align: center;
-  color: var(--ink-3);
+  color: var(--island-text-on-bg);
   font-size: 12.5px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 .park-foot {
   margin-top: 4px;
   text-align: center;
-  color: var(--ink-3);
+  color: var(--island-text-on-bg);
   font-size: 11.5px;
-  line-height: 1.7;
+  line-height: 1.75;
+  opacity: .82;
 }
 
 /* 失效 / 空状态 */
-.state {
+.park-body .state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 56px 16px;
+  gap: 12px;
+  padding: 64px 16px;
   text-align: center;
 }
 
-.state-icon {
-  width: 56px;
-  height: 56px;
+.park-body .state-icon {
+  width: 62px;
+  height: 62px;
+  border: 2px solid var(--island-line);
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--ink-3);
+  background: var(--island-content);
+  color: #9f927d;
 }
 
-.state h2 { margin: 6px 0 0; font-size: 17px; }
-.state p { margin: 0; color: var(--ink-2); font-size: 13.5px; line-height: 1.7; max-width: 260px; }
+.park-body .state h2 {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--island-ink-on-bg);
+}
 
-/* Toast */
+.park-body .state p {
+  margin: 0;
+  color: var(--island-text-on-bg);
+  font-size: 13.5px;
+  line-height: 1.75;
+  max-width: 262px;
+}
+
+/* Toast：暖色小卡片，和页面同一套材质 */
 .toast {
   position: fixed;
   left: 50%;
@@ -320,7 +422,7 @@ button { font: inherit; color: inherit; }
   transform: translate(-50%, 12px);
   max-width: 84vw;
   padding: 11px 18px;
-  border-radius: 999px;
+  border-radius: 50px;
   background: rgba(24, 26, 32, .92);
   color: #fff;
   font-size: 13.5px;
@@ -332,6 +434,82 @@ button { font: inherit; color: inherit; }
 }
 
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* 扫码页的 toast 抬高到海浪页脚之上 */
+.park-body .toast { bottom: calc(124px + var(--safe-b)); }
+
+@media (max-width: 560px) {
+  .park-body .toast { bottom: calc(106px + var(--safe-b)); }
+}
+
+.park-body .toast {
+  background: var(--island-content);
+  border: 2px solid var(--island-line);
+  color: var(--island-ink);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(61, 52, 40, .16);
+}
+
+/* 拨号确认弹层 */
+.park-body .modal { background: rgba(61, 52, 40, .36); }
+
+.park-body .modal-card {
+  background: var(--island-content);
+  border: 2px solid var(--island-line);
+  border-radius: 24px;
+  color: var(--island-text);
+  font-family: inherit;
+  box-shadow: 0 8px 24px rgba(61, 52, 40, .18);
+}
+
+.park-body .cfm-title {
+  margin: 4px 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--island-ink);
+}
+
+.park-body .cfm-sub { margin: 0 0 6px; color: var(--island-muted); font-size: 13.5px; }
+
+.park-body .cfm-phone {
+  margin: 0 0 20px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  font-variant-numeric: tabular-nums;
+  color: var(--island-ink);
+}
+
+.park-body .cfm-actions { display: flex; gap: 10px; }
+
+.park-body .cfm-actions .btn {
+  flex: 1;
+  height: 48px;
+  border: 0;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.park-body .cfm-cancel {
+  background: var(--island-input);
+  color: var(--island-text);
+  border: 2px solid var(--island-line);
+  box-shadow: 0 3px 0 0 var(--island-line-soft);
+}
+
+.park-body .cfm-cancel:active { transform: translateY(2px); box-shadow: 0 1px 0 0 var(--island-line-soft); }
+
+.park-body .cfm-ok { background: var(--island-primary); box-shadow: 0 4px 0 0 var(--island-shadow); }
+
+.park-body .cfm-ok:hover { background: var(--island-primary-hover); }
+
+.park-body .cfm-ok:active {
+  background: var(--island-primary-active);
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 0 var(--island-shadow);
+}
 
 /* ============================ 后台 ============================ */
 

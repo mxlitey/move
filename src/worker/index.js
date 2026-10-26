@@ -1,5 +1,5 @@
 import { fail } from './lib/http.js';
-import { handleHome, handleDemoPage, handleParkPage, handleQrSvg, handleRobots } from './handlers/publicPages.js';
+import { handleHome, handleDemoPage, handleParkPage, handleQrSvg, handleRobots, handleAsset } from './handlers/publicPages.js';
 import { handleContact } from './handlers/publicApi.js';
 import {
   handleAdminPage,
@@ -30,6 +30,15 @@ export default {
 
       // ---------- 静态 ----------
       if (path === '/robots.txt') return handleRobots();
+
+      // 扫码页装饰图（海面页脚、动态背景）
+      const assetMatch = path.match(/^\/assets\/([a-z0-9]+\.(?:svg|webp))$/i);
+      if (assetMatch) {
+        if (method !== 'GET') return fail('METHOD_NOT_ALLOWED', '方法不允许', 405);
+        const asset = handleAsset(assetMatch[1]);
+        if (!asset) return fail('NOT_FOUND', '页面不存在', 404);
+        return asset;
+      }
 
       // ---------- 扫码页 ----------
       const parkMatch = path.match(/^\/p\/([^/]+)$/);

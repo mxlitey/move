@@ -106,14 +106,12 @@
     wrap.className = 'modal';
     wrap.innerHTML =
       '<div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="cfmTitle" style="max-width:340px;text-align:center">' +
-      '<h2 id="cfmTitle" style="margin:4px 0 8px;font-size:17px">确认拨打电话</h2>' +
-      '<p style="margin:0 0 4px;color:var(--ink-2);font-size:13.5px">即将拨打</p>' +
-      '<p style="margin:0 0 18px;font-size:22px;font-weight:700;letter-spacing:.04em;font-variant-numeric:tabular-nums">' +
-      maskPhone(phone) +
-      '</p>' +
-      '<div style="display:flex;gap:10px">' +
-      '<button type="button" class="btn btn-ghost" data-act="cancel" style="flex:1">取消</button>' +
-      '<button type="button" class="btn" data-act="ok" style="flex:1;background:var(--call)">呼叫</button>' +
+      '<h2 id="cfmTitle" class="cfm-title">确认拨打电话</h2>' +
+      '<p class="cfm-sub">即将拨打</p>' +
+      '<p class="cfm-phone">' + maskPhone(phone) + '</p>' +
+      '<div class="cfm-actions">' +
+      '<button type="button" class="btn cfm-cancel" data-act="cancel">取消</button>' +
+      '<button type="button" class="btn cfm-ok" data-act="ok">呼叫</button>' +
       '</div></div>';
 
     document.body.appendChild(wrap);

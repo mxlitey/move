@@ -41,6 +41,35 @@ export const ADMIN_JS = ${JSON.stringify(adminJs)};
   return { css: css.length, park: parkJs.length, admin: adminJs.length };
 }
 
+/**
+ * 扫码页用到的两张装饰图。以 base64 随函数一起发布，
+ * 由 /assets/* 路由按静态资源返回，HTML 里只留一个短链接。
+ */
+async function buildMedia() {
+  const files = [
+    { name: 'sea.svg', file: 'footer-sea.svg', type: 'image/svg+xml; charset=utf-8' },
+    { name: 'bg.webp', file: 'home_bg.webp', type: 'image/webp' },
+  ];
+
+  const entries = [];
+  for (const item of files) {
+    const buf = await readFile(path.join(srcDir, 'web', 'assets', item.file));
+    entries.push(`  ${JSON.stringify(item.name)}: { type: ${JSON.stringify(item.type)}, data: ${JSON.stringify(buf.toString('base64'))} },`);
+  }
+
+  await writeFile(
+    path.join(genDir, 'media.js'),
+    `// 由 build/build.mjs 自动生成，请勿手动修改
+export const MEDIA = {
+${entries.join('\n')}
+};
+`,
+    'utf8'
+  );
+
+  return files.length;
+}
+
 async function buildWorker() {
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
@@ -73,12 +102,14 @@ async function main() {
   }
 
   const web = await buildWeb();
+  const media = await buildMedia();
   const worker = await buildWorker();
 
   console.log('构建完成');
   console.log(`  样式     ${(web.css / 1024).toFixed(1)} KB`);
   console.log(`  扫码页   ${(web.park / 1024).toFixed(1)} KB`);
   console.log(`  后台     ${(web.admin / 1024).toFixed(1)} KB`);
+  console.log(`  装饰图   ${media} 张（base64 内联）`);
   console.log(`  产物     dist/index.js  ${worker} KB（上限 4 MB）`);
 }
 
