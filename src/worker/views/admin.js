@@ -155,8 +155,9 @@ export function renderAdminBody() {
         <input class="input" id="carPlate" maxlength="9" placeholder="如 粤B12345" required>
       </div>
       <div class="field">
-        <label for="carPhone">联系电话</label>
-        <input class="input" id="carPhone" maxlength="11" inputmode="numeric" placeholder="11 位手机号" required>
+        <label>联系电话</label>
+        <div id="phoneList"></div>
+        <button class="btn btn-ghost btn-sm" id="addPhoneBtn" type="button" style="margin-top:8px">${ICONS.plus}<span>添加号码</span></button>
       </div>
       <div class="alert" id="carError" hidden></div>
       <div class="modal-foot">
@@ -171,9 +172,7 @@ export function renderAdminBody() {
 
 <div class="print-sheet" id="printSheet">
   <div class="p-qr" id="printQr"></div>
-  <div class="p-plate" id="printPlate"></div>
   <div class="p-tip">如需挪车，请扫码联系车主<br>Scan to contact the owner</div>
-  <div class="p-foot">本码由车主本人贴置</div>
 </div>`;
 }
 

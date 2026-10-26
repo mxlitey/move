@@ -180,18 +180,51 @@ export async function handleSaveCar(env, request) {
   const car = {
     id,
     plate: parsed.value.plate,
-    phone: parsed.value.phone,
+    phones: parsed.value.phones,
+    // 旧的单号码字段只作为兼容读取，新数据不再写入
+    phone: undefined,
     enabled: body.enabled !== false,
     sort: index >= 0 ? cars[index].sort : cars.length + 1,
   };
 
-  if (index >= 0) cars[index] = { ...cars[index], ...car };
-  else cars.push(car);
+  if (index >= 0) {
+    const merged = { ...cars[index], ...car };
+    delete merged.phone;
+    cars[index] = merged;
+  } else {
+    delete car.phone;
+    cars.push(car);
+  }
 
   const written = await saveSite(env, { ...site, cars }, body.rev);
   if (!written.ok) return fail('REV_CONFLICT', '内容已被其他窗口修改，请刷新后重试', 409);
 
   return ok({ site: written.site, carId: id });
+}
+
+/** 快捷置顶：把某个号码设为该车的呼叫号码 */
+export async function handleSetPrimaryPhone(env, request) {
+  if (!(await auth(env, request))) return fail('UNAUTHORIZED', '未登录', 401);
+
+  const body = await readBody(request);
+  if (!body || typeof body.carId !== 'string' || typeof body.phoneId !== 'string') {
+    return fail('INVALID_INPUT', '参数错误');
+  }
+
+  const site = await ensureSite(env);
+  const cars = Array.isArray(site.cars) ? site.cars.slice() : [];
+  const index = cars.findIndex((c) => c.id === body.carId);
+  if (index < 0) return fail('NOT_FOUND', '车辆不存在', 404);
+
+  const phones = Array.isArray(cars[index].phones) ? cars[index].phones.slice() : [];
+  if (!phones.some((p) => p.id === body.phoneId)) return fail('NOT_FOUND', '号码不存在', 404);
+
+  const next = phones.map((p) => ({ ...p, primary: p.id === body.phoneId }));
+  cars[index] = { ...cars[index], phones: next };
+
+  const written = await saveSite(env, { ...site, cars }, body.rev);
+  if (!written.ok) return fail('REV_CONFLICT', '内容已被其他窗口修改，请刷新后重试', 409);
+  return ok({ site: written.site });
 }
 
 export async function handleDeleteCar(env, request, url) {

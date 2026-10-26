@@ -29,9 +29,9 @@ export function handleDemoPage() {
     title: '临时停车，需挪车请联系我',
     notice: '扫码后可一键呼叫，感谢配合',
     cars: [
-      { id: 'demo1', plate: '京A·12345', phone: '13800000001', enabled: true, sort: 1 },
-      { id: 'demo2', plate: '沪B·67890', phone: '13800000002', enabled: true, sort: 2 },
-      { id: 'demo3', plate: '粤C·24680', phone: '13800000003', enabled: true, sort: 3 },
+      { id: 'demo1', plate: '京A·12345', phones: [{ id: 'd1a', phone: '13800000001', primary: true }], enabled: true, sort: 1 },
+      { id: 'demo2', plate: '沪B·67890', phones: [{ id: 'd2a', phone: '13800000002', primary: true }], enabled: true, sort: 2 },
+      { id: 'demo3', plate: '粤C·24680', phones: [{ id: 'd3a', phone: '13800000003', primary: true }], enabled: true, sort: 3 },
     ],
   };
 

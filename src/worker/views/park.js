@@ -1,4 +1,5 @@
 import { escapeHtml, safeJsonForScript } from '../lib/layout.js';
+import { primaryPhone } from '../lib/validate.js';
 
 const CALL_ICON = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
 <path d="M6.6 3.5a2 2 0 0 1 2.3.9l1.2 2a2 2 0 0 1-.4 2.5l-.7.6a12.5 12.5 0 0 0 5.5 5.5l.6-.7a2 2 0 0 1 2.5-.4l2 1.2a2 2 0 0 1 .9 2.3l-.5 1.7a2.5 2.5 0 0 1-2.6 1.8C10.2 20.4 3.6 13.8 3.1 6.6A2.5 2.5 0 0 1 4.9 4l1.7-.5Z" fill="currentColor"/>
@@ -36,7 +37,9 @@ export function renderParkBody(page, { demo = false } = {}) {
     <span class="acc-plate">${escapeHtml(cars[0].plate)}</span>
   </div>
   <div class="acc-panel">
-    ${callButton(page.id, cars[0].id)}
+    <div class="acc-panel-inner">
+      ${callButton(page.id, cars[0].id)}
+    </div>
   </div>
 </div>`
     : cars
@@ -77,7 +80,7 @@ export function renderParkBody(page, { demo = false } = {}) {
     // 示例页直接用内置的虚构号码，不访问取号接口
     phones: demo
       ? cars.reduce((acc, c) => {
-          acc[c.id] = c.phone;
+          acc[c.id] = primaryPhone(c);
           return acc;
         }, {})
       : undefined,

@@ -118,10 +118,19 @@ async function main() {
   check('后台有 SVG 下载按钮', shellHtml.includes('downloadSvgBtn'));
   check('扫码预览卡片已移除', !shellHtml.includes('qrPreview'));
 
-  // 6. 新增车辆
+  // 6. 新增车辆（多号码）
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { plate: '粤B12345', phone: '13800138000', enabled: true, rev: site.rev },
+    body: {
+      plate: '粤B12345',
+      phones: [
+        { phone: '13800138000', primary: true },
+        { phone: '13800138001' },
+        { phone: '13800138002' },
+      ],
+      enabled: true,
+      rev: site.rev,
+    },
   });
   check('新增车辆成功', r.status === 200 && r.payload.ok, JSON.stringify(r.payload).slice(0, 120));
   let rev = r.payload.data ? r.payload.data.site.rev : site.rev;
@@ -129,25 +138,30 @@ async function main() {
   const firstCar = r.payload.data ? r.payload.data.site.cars[0] : {};
   check('车辆不含车型字段', !('model' in firstCar));
   check('车辆不含颜色字段', !('color' in firstCar));
+  check('车辆保存了 3 个号码', Array.isArray(firstCar.phones) && firstCar.phones.length === 3,
+    JSON.stringify(firstCar.phones));
+  check('只有一个置顶号码', (firstCar.phones || []).filter((p) => p.primary).length === 1);
+
+  const phone1Ids = (firstCar.phones || []).map((p) => p.id);
 
   // 7. 手机号非法
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { plate: '粤B12345', phone: '12345', rev },
+    body: { plate: '粤B12345', phones: [{ phone: '12345' }], rev },
   });
   check('非法手机号被拒绝', r.status === 400);
 
   // 8. 车牌非法
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { plate: 'XX', phone: '13900139000', rev },
+    body: { plate: 'XX', phones: [{ phone: '13900139000' }], rev },
   });
   check('非法车牌被拒绝', r.status === 400);
 
   // 9. 再加一辆
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { plate: '粤B67890', phone: '13900139000', enabled: true, rev },
+    body: { plate: '粤B67890', phones: [{ phone: '13900139000', primary: true }], enabled: true, rev },
   });
   check('新增第二辆车', r.status === 200 && r.payload.ok);
   rev = r.payload.data.site.rev;
@@ -176,10 +190,39 @@ async function main() {
   r = await call('/p/zzzzzzzz', { keepCookie: false });
   check('无效 pageId 返回失效页', r.status === 200 && String(r.payload).includes('挪车码无效'));
 
-  // 13. 取号接口
+  // 13. 取号接口：只返回置顶号码
   r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: car1 }, keepCookie: false });
-  check('取号成功', r.status === 200 && r.payload.data.phone === '13800138000', JSON.stringify(r.payload));
+  check('取号返回置顶号码', r.status === 200 && r.payload.data.phone === '13800138000', JSON.stringify(r.payload));
   check('取号响应 no-store', (r.headers.get('cache-control') || '').includes('no-store'));
+
+  // 13b. 置顶第二个号码后，取号应跟着变化
+  r = await call('/api/admin/car/primary-phone', {
+    method: 'POST',
+    body: { carId: car1, phoneId: phone1Ids[1], rev },
+  });
+  check('置顶号码成功', r.status === 200 && r.payload.ok, JSON.stringify(r.payload).slice(0, 120));
+  rev = r.payload.data.site.rev;
+
+  const carAfterPin = r.payload.data.site.cars.find((c) => c.id === car1);
+  check('置顶后只有一个 primary', carAfterPin.phones.filter((p) => p.primary).length === 1);
+  check('置顶的是指定号码', carAfterPin.phones.find((p) => p.primary).phone === '13800138001');
+
+  r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: car1 }, keepCookie: false });
+  check('取号跟随置顶号码', r.status === 200 && r.payload.data.phone === '13800138001', JSON.stringify(r.payload));
+
+  // 置顶不存在的号码
+  r = await call('/api/admin/car/primary-phone', {
+    method: 'POST',
+    body: { carId: car1, phoneId: 'nope', rev },
+  });
+  check('置顶不存在的号码返回 404', r.status === 404);
+
+  // 恢复置顶到第一个号码
+  r = await call('/api/admin/car/primary-phone', {
+    method: 'POST',
+    body: { carId: car1, phoneId: phone1Ids[0], rev },
+  });
+  rev = r.payload.data.site.rev;
 
   // 14. 取号错误 carId
   r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: 'nope' }, keepCookie: false });
@@ -188,7 +231,7 @@ async function main() {
   // 15. 关闭第二辆的显示开关
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { id: car2, plate: '粤B67890', phone: '13900139000', enabled: false, rev },
+    body: { id: car2, plate: '粤B67890', phones: [{ phone: '13900139000', primary: true }], enabled: false, rev },
   });
   check('关闭显示开关成功', r.status === 200 && r.payload.ok);
   rev = r.payload.data.site.rev;
@@ -203,7 +246,7 @@ async function main() {
   // 重新打开开关
   r = await call('/api/admin/car', {
     method: 'POST',
-    body: { id: car2, plate: '粤B67890', phone: '13900139000', enabled: true, rev },
+    body: { id: car2, plate: '粤B67890', phones: [{ phone: '13900139000', primary: true }], enabled: true, rev },
   });
   check('重新打开显示开关', r.status === 200 && r.payload.ok);
   rev = r.payload.data.site.rev;
@@ -280,7 +323,7 @@ async function main() {
   // 21. 未登录写操作
   const savedCookie = cookie;
   cookie = '';
-  r = await call('/api/admin/car', { method: 'POST', body: { plate: '粤B11111', phone: '13700137000' } });
+  r = await call('/api/admin/car', { method: 'POST', body: { plate: '粤B11111', phones: [{ phone: '13700137000' }] } });
   check('未登录写操作 401', r.status === 401);
   cookie = savedCookie;
 

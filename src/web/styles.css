@@ -562,7 +562,7 @@ body.is-sorting .drag-handle { cursor: grabbing; }
   place-items: center;
   color: var(--ink-3);
   cursor: grab;
-  /* 关键：让浏览器把触摸手势交给 JS，否则一拖就滚动页面 */
+  /* 让浏览器把触摸手势完全交给 JS，否则一拖就被当成滚动 */
   touch-action: none;
   /* 桌面端拖动时不选中文字，触屏长按不弹复制菜单 */
   user-select: none;
@@ -583,12 +583,56 @@ body.is-sorting .drag-handle { cursor: grabbing; }
   gap: 8px;
 }
 .car-row-sub {
-  margin-top: 3px;
+  margin-top: 4px;
   font-size: 12.5px;
   color: var(--ink-3);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.primary-phone {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: rgba(22, 163, 74, .12);
+  color: var(--call-strong);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-color-scheme: dark) {
+  .primary-phone { color: #4ade80; background: rgba(34, 197, 94, .16); }
+}
+
+.phone-chips { display: inline-flex; flex-wrap: wrap; gap: 5px; }
+
+.phone-chip {
+  padding: 1px 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+
+.phone-chip:hover { color: var(--brand); border-color: var(--brand); }
+.phone-chip[disabled] { opacity: .5; cursor: default; }
+
+.tag-off {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--line);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .car-row-ops { display: flex; gap: 6px; flex: 0 0 auto; }
@@ -689,6 +733,42 @@ body.is-sorting .drag-handle { cursor: grabbing; }
 
 .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
+/* 弹层里的号码行：输入框 + 呼叫标记 + 删除 */
+.phone-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.phone-row .input { flex: 1; min-width: 0; }
+
+.phone-pin {
+  flex: 0 0 auto;
+  height: 46px;
+  padding: 0 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+
+.phone-pin.active {
+  border-color: var(--call);
+  background: rgba(22, 163, 74, .12);
+  color: var(--call-strong);
+}
+
+@media (prefers-color-scheme: dark) {
+  .phone-pin.active { color: #4ade80; }
+}
+
+.phone-row .icon-btn { flex: 0 0 34px; height: 46px; border-radius: 10px; }
+
 .switch { position: relative; width: 44px; height: 26px; flex: 0 0 44px; }
 .switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
 .switch span {
@@ -733,9 +813,7 @@ body.is-sorting .drag-handle { cursor: grabbing; }
   }
   .print-sheet .p-qr { width: 72mm; height: 72mm; }
   .print-sheet .p-qr svg { width: 100%; height: 100%; }
-  .print-sheet .p-plate { font-size: 20pt; font-weight: 800; letter-spacing: .1em; }
   .print-sheet .p-tip { font-size: 11pt; color: #444; line-height: 1.6; }
-  .print-sheet .p-foot { font-size: 8pt; color: #888; }
 }
 
 @media (max-width: 560px) {

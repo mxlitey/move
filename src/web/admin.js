@@ -151,12 +151,23 @@ import { renderQrSvg } from '../shared/qr.js';
     var html = '';
     var canDrag = state.cars.length > 1;
     state.cars.forEach(function (car, index) {
-      var sub = maskPhone(car.phone) + (car.enabled ? '' : ' · 已在扫码页隐藏');
+      var phones = phoneListOf(car);
+      var primary = phones.find(function (p) { return p.primary; }) || phones[0] || { phone: '' };
+
+      // 其余号码用 chip 展示，点击即置顶
+      var chips = '';
+      phones.forEach(function (p) {
+        if (p.id === primary.id) return;
+        chips +=
+          '<button type="button" class="phone-chip" data-act="pin" data-phone-id="' + escapeHtml(p.id) +
+          '" title="点击设为呼叫号码">' + escapeHtml(maskPhone(p.phone)) + '</button>';
+      });
+
       html +=
         '<div class="car-row' + (canDrag ? ' is-draggable' : '') + '" data-id="' + escapeHtml(car.id) +
         '" data-index="' + index + '">' +
         (canDrag
-          ? '<span class="drag-handle" title="按住拖动排序" aria-hidden="true">' +
+          ? '<span class="drag-handle" role="button" tabindex="-1" title="按住拖动排序">' +
             '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="7" r="1.5"/><circle cx="15" cy="7" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="17" r="1.5"/><circle cx="15" cy="17" r="1.5"/></svg>' +
             '</span>'
           : '') +
@@ -166,8 +177,13 @@ import { renderQrSvg } from '../shared/qr.js';
         '<span></span>' +
         '</label>' +
         '<div class="car-row-main">' +
-        '<div class="car-row-plate">' + escapeHtml(car.plate) + '</div>' +
-        '<div class="car-row-sub">' + escapeHtml(sub) + '</div>' +
+        '<div class="car-row-plate">' + escapeHtml(car.plate) +
+        (car.enabled ? '' : '<span class="tag-off">已隐藏</span>') +
+        '</div>' +
+        '<div class="car-row-sub">' +
+        '<span class="primary-phone" title="扫码时呼叫此号码">' + escapeHtml(maskPhone(primary.phone)) + '</span>' +
+        (chips ? '<span class="phone-chips">' + chips + '</span>' : '') +
+        '</div>' +
         '</div>' +
         '<div class="car-row-ops">' +
         '<button class="icon-btn" data-act="edit" type="button" aria-label="编辑">' +
@@ -182,6 +198,13 @@ import { renderQrSvg } from '../shared/qr.js';
     bindDragSort();
   }
 
+  /** 兼容早期的单 phone 字段 */
+  function phoneListOf(car) {
+    if (Array.isArray(car.phones) && car.phones.length) return car.phones;
+    if (car.phone) return [{ id: 'legacy', phone: car.phone, primary: true }];
+    return [];
+  }
+
   // ------------------------- 拖拽排序 -------------------------
   //
   // 用 Pointer Events 而不是 HTML5 拖拽：后者在移动端浏览器基本不触发。
@@ -192,26 +215,31 @@ import { renderQrSvg } from '../shared/qr.js';
 
   function bindDragSort() {
     var list = $('carList');
-    var handles = list.querySelectorAll('.drag-handle');
+    if (list.getAttribute('data-drag-bound') === '1') return;
+    list.setAttribute('data-drag-bound', '1');
 
-    Array.prototype.forEach.call(handles, function (handle) {
-      handle.addEventListener('pointerdown', onHandleDown);
-      // 触屏长按会触发 contextmenu 弹出「复制」，这里直接吃掉
-      handle.addEventListener('contextmenu', function (ev) {
-        ev.preventDefault();
-      });
-      // 阻止抓手产生原生拖拽（图片/链接式），否则会与 pointer 逻辑打架
-      handle.addEventListener('dragstart', function (ev) {
-        ev.preventDefault();
-      });
+    // 事件委托绑在列表容器上：行节点被重建后依然有效，
+    // 不会因为 renderCars 替换 innerHTML 而丢失监听
+    list.addEventListener('pointerdown', function (ev) {
+      if (!ev.target.closest || !ev.target.closest('.drag-handle')) return;
+      onHandleDown(ev);
+    });
+
+    list.addEventListener('contextmenu', function (ev) {
+      if (ev.target.closest && ev.target.closest('.drag-handle')) ev.preventDefault();
+    });
+
+    list.addEventListener('dragstart', function (ev) {
+      if (ev.target.closest && ev.target.closest('.drag-handle')) ev.preventDefault();
     });
   }
 
   function onHandleDown(ev) {
     // 只响应主键（鼠标左键 / 单指）
-    if (ev.button !== undefined && ev.button !== 0) return;
+    if (typeof ev.button === 'number' && ev.button !== 0) return;
 
-    var row = ev.currentTarget.closest('.car-row');
+    var handle = ev.target.closest('.drag-handle');
+    var row = handle && handle.closest('.car-row');
     if (!row) return;
 
     ev.preventDefault();
@@ -222,22 +250,16 @@ import { renderQrSvg } from '../shared/qr.js';
       pointerId: ev.pointerId,
       startY: ev.clientY,
       dragging: false,
-      locked: false,
     };
 
     // 从按下的瞬间就禁掉选中，避免鼠标一按就刷出蓝色选区
     document.body.classList.add('is-sorting');
     clearSelection();
 
-    try {
-      ev.currentTarget.setPointerCapture(ev.pointerId);
-    } catch (e) {
-      /* 忽略 */
-    }
-
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerUp);
+    // 监听绑在 window 上，手指/鼠标移出抓手也不会断
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
     document.addEventListener('selectstart', preventDuringSort);
   }
 
@@ -256,7 +278,7 @@ import { renderQrSvg } from '../shared/qr.js';
   }
 
   function onPointerMove(ev) {
-    if (!dragState || dragState.locked) return;
+    if (!dragState) return;
     if (ev.pointerId !== dragState.pointerId) return;
 
     // 移动超过 6px 才算拖拽，避免误触
@@ -267,28 +289,49 @@ import { renderQrSvg } from '../shared/qr.js';
     }
 
     ev.preventDefault();
+    ev.stopPropagation();
 
-    // 触摸拖动时阻止页面滚动
-    var target = rowUnderPoint(ev.clientY);
+    // 实时提示落点
     clearDropMarks();
+    var hit = dropTargetAt(ev.clientY, dragState.row);
+    if (!hit) return;
 
-    if (!target || target === dragState.row) return;
+    dragState.targetId = hit.row.getAttribute('data-id');
+    dragState.before = hit.before;
+    hit.row.classList.add(hit.before ? 'drag-over-top' : 'drag-over-bottom');
+  }
 
-    dragState.targetId = target.getAttribute('data-id');
-    var rect = target.getBoundingClientRect();
-    var before = ev.clientY < rect.top + rect.height / 2;
-    dragState.before = before;
-    target.classList.add(before ? 'drag-over-top' : 'drag-over-bottom');
+  /**
+   * 计算落点。指针在首行之上 → 插到最前；在末行之下 → 插到最后；
+   * 其余情况按所在行上半/下半决定插到该行之前或之后。
+   */
+  function dropTargetAt(y, excludeRow) {
+    var rows = Array.prototype.filter.call(
+      $('carList').querySelectorAll('.car-row'),
+      function (r) { return r !== excludeRow; }
+    );
+    if (!rows.length) return null;
+
+    var first = rows[0].getBoundingClientRect();
+    if (y < first.top) return { row: rows[0], before: true };
+
+    var last = rows[rows.length - 1].getBoundingClientRect();
+    if (y > last.bottom) return { row: rows[rows.length - 1], before: false };
+
+    for (var i = 0; i < rows.length; i++) {
+      var rect = rows[i].getBoundingClientRect();
+      if (y >= rect.top && y <= rect.bottom) {
+        return { row: rows[i], before: y < rect.top + rect.height / 2 };
+      }
+    }
+    return null;
   }
 
   function onPointerUp(ev) {
     if (!dragState) return;
     if (ev.pointerId !== undefined && ev.pointerId !== dragState.pointerId) return;
 
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-    document.removeEventListener('pointercancel', onPointerUp);
-    document.removeEventListener('selectstart', preventDuringSort);
+    cleanupDrag();
 
     var drag = dragState;
     dragState = null;
@@ -312,12 +355,30 @@ import { renderQrSvg } from '../shared/qr.js';
     applyOrder(ids);
   }
 
-  /** 找出当前指针下方的车辆行，忽略被拖拽的那一行 */
-  function rowUnderPoint(y) {
+  function onPointerCancel(ev) {
+    if (!dragState) return;
+    if (ev.pointerId !== undefined && ev.pointerId !== dragState.pointerId) return;
+
+    cleanupDrag();
+    if (dragState.row) dragState.row.classList.remove('is-dragging');
+    document.body.classList.remove('is-sorting');
+    clearDropMarks();
+    dragState = null;
+  }
+
+  function cleanupDrag() {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerCancel);
+    document.removeEventListener('selectstart', preventDuringSort);
+  }
+
+  /** 找出指针 y 坐标所在的车辆行，排除被拖拽的那一行 */
+  function rowUnderPoint(y, excludeRow) {
     var rows = $('carList').querySelectorAll('.car-row');
     for (var i = 0; i < rows.length; i++) {
       var row = rows[i];
-      if (row === (dragState && dragState.row)) continue;
+      if (row === excludeRow) continue;
       var rect = row.getBoundingClientRect();
       if (y >= rect.top && y <= rect.bottom) return row;
     }
@@ -372,6 +433,26 @@ import { renderQrSvg } from '../shared/qr.js';
 
     var act = btn.getAttribute('data-act');
 
+    if (act === 'pin') {
+      var phoneId = btn.getAttribute('data-phone-id');
+      btn.disabled = true;
+      api('/api/admin/car/primary-phone', {
+        method: 'POST',
+        body: { carId: car.id, phoneId: phoneId, rev: state.site.rev },
+      })
+        .then(function (data) {
+          state.site = data.site;
+          state.cars = data.site.cars || [];
+          renderCars();
+          toast('已设为呼叫号码');
+        })
+        .catch(function (err) {
+          btn.disabled = false;
+          toast(err.message);
+        });
+      return;
+    }
+
     if (act === 'edit') {
       openCarModal(car);
       return;
@@ -406,7 +487,7 @@ import { renderQrSvg } from '../shared/qr.js';
       body: {
         id: car.id,
         plate: car.plate,
-        phone: car.phone,
+        phones: phoneListOf(car),
         enabled: next,
         rev: state.site.rev,
       },
@@ -426,14 +507,68 @@ import { renderQrSvg } from '../shared/qr.js';
 
   // ------------------------- 车辆弹层 -------------------------
 
+  // 弹层里正在编辑的号码列表，结构与后端一致
+  var modalPhones = [];
+
+  function renderModalPhones() {
+    var box = $('phoneList');
+    var html = '';
+
+    modalPhones.forEach(function (p, i) {
+      html +=
+        '<div class="phone-row' + (p.primary ? ' is-primary' : '') + '" data-phone-id="' + escapeHtml(p.id) + '">' +
+        '<input class="input" type="tel" inputmode="numeric" maxlength="11" data-phone-input ' +
+        'placeholder="11 位手机号" value="' + escapeHtml(p.phone) + '">' +
+        '<button type="button" class="phone-pin' + (p.primary ? ' active' : '') + '" data-phone-pin ' +
+        'title="' + (p.primary ? '当前呼叫号码' : '设为呼叫号码') + '">呼叫</button>' +
+        (modalPhones.length > 1
+          ? '<button type="button" class="icon-btn danger" data-phone-del aria-label="删除该号码">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6 7l1 13h10l1-13"/></svg>' +
+            '</button>'
+          : '') +
+        '</div>';
+      void i;
+    });
+
+    box.innerHTML = html;
+    $('addPhoneBtn').disabled = modalPhones.length >= 5;
+  }
+
+  function collectModalPhones() {
+    var rows = $('phoneList').querySelectorAll('.phone-row');
+    var out = [];
+    Array.prototype.forEach.call(rows, function (row) {
+      var input = row.querySelector('[data-phone-input]');
+      var pin = row.querySelector('[data-phone-pin]');
+      out.push({
+        id: row.getAttribute('data-phone-id'),
+        phone: input ? input.value.trim() : '',
+        primary: pin ? pin.classList.contains('active') : false,
+      });
+    });
+    return out;
+  }
+
   function openCarModal(car) {
     $('carId').value = car ? car.id : '';
     $('carPlate').value = car ? car.plate : '';
-    $('carPhone').value = car ? car.phone || '' : '';
+
+    var phones = car ? phoneListOf(car) : [];
+    modalPhones = phones.length
+      ? phones.map(function (p) { return { id: p.id, phone: p.phone, primary: p.primary === true }; })
+      : [{ id: newPhoneId(), phone: '', primary: true }];
+
+    if (!modalPhones.some(function (p) { return p.primary; })) modalPhones[0].primary = true;
+
     $('carModalTitle').textContent = car ? '编辑车辆' : '添加车辆';
+    renderModalPhones();
     showAlert('carError', '');
     $('carModal').hidden = false;
     $('carPlate').focus();
+  }
+
+  function newPhoneId() {
+    return 'p' + Math.random().toString(36).slice(2, 8);
   }
 
   function closeCarModal() {
@@ -446,6 +581,40 @@ import { renderQrSvg } from '../shared/qr.js';
     if (ev.target === $('carModal')) closeCarModal();
   });
 
+  $('addPhoneBtn').addEventListener('click', function () {
+    modalPhones = collectModalPhones();
+    if (modalPhones.length >= 5) return;
+    modalPhones.push({ id: newPhoneId(), phone: '', primary: false });
+    renderModalPhones();
+    var inputs = $('phoneList').querySelectorAll('[data-phone-input]');
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  // 号码行的置顶与删除（事件委托，重新渲染后仍有效）
+  $('phoneList').addEventListener('click', function (ev) {
+    var pinBtn = ev.target.closest ? ev.target.closest('[data-phone-pin]') : null;
+    if (pinBtn) {
+      var row = pinBtn.closest('.phone-row');
+      var id = row.getAttribute('data-phone-id');
+      modalPhones = collectModalPhones().map(function (p) {
+        return { id: p.id, phone: p.phone, primary: p.id === id };
+      });
+      renderModalPhones();
+      return;
+    }
+
+    var delBtn = ev.target.closest ? ev.target.closest('[data-phone-del]') : null;
+    if (delBtn) {
+      var delRow = delBtn.closest('.phone-row');
+      var delId = delRow.getAttribute('data-phone-id');
+      var remaining = collectModalPhones().filter(function (p) { return p.id !== delId; });
+      if (!remaining.length) return;
+      if (!remaining.some(function (p) { return p.primary; })) remaining[0].primary = true;
+      modalPhones = remaining;
+      renderModalPhones();
+    }
+  });
+
   $('carForm').addEventListener('submit', function (ev) {
     ev.preventDefault();
     var existing = null;
@@ -456,7 +625,7 @@ import { renderQrSvg } from '../shared/qr.js';
     var payload = {
       id: $('carId').value || undefined,
       plate: $('carPlate').value,
-      phone: $('carPhone').value,
+      phones: collectModalPhones(),
       // 开关已移到列表里，弹层保存时保持原有可见状态
       enabled: existing ? existing.enabled !== false : true,
       rev: state.site.rev,
@@ -543,7 +712,6 @@ import { renderQrSvg } from '../shared/qr.js';
     $('qrLink').href = state.pageUrl;
     renderQr($('qrCanvas'), 600);
     renderQr($('printQr'), 800);
-    $('printPlate').textContent = state.cars.length ? state.cars[0].plate : '';
   }
 
   $('copyLinkBtn').addEventListener('click', function () {
