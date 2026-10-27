@@ -7,6 +7,8 @@ import { renderQrSvg } from '../shared/qr.js';
     site: null,
     cars: [],
     pageUrl: '',
+    // 二维码指向的车辆；空串表示整页一码（多车列表）
+    qrCarId: '',
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -145,6 +147,7 @@ import { renderQrSvg } from '../shared/qr.js';
     var box = $('carList');
     if (!state.cars.length) {
       box.innerHTML = '<div class="empty">还没有车辆<br>点击右上角「添加车辆」开始</div>';
+      renderQrSelect();
       return;
     }
 
@@ -196,6 +199,7 @@ import { renderQrSvg } from '../shared/qr.js';
     });
     box.innerHTML = html;
     bindDragSort();
+    renderQrSelect();
   }
 
   /** 兼容早期的单 phone 字段 */
@@ -832,9 +836,60 @@ import { renderQrSvg } from '../shared/qr.js';
 
   // ------------------------- 二维码 -------------------------
 
+  /** 当前二维码指向的地址：选了车辆就带上 ?car=，否则指向整页 */
+  function qrUrl() {
+    if (!state.qrCarId) return state.pageUrl;
+    return state.pageUrl + '?car=' + encodeURIComponent(state.qrCarId);
+  }
+
+  function findCar(id) {
+    var hit = null;
+    state.cars.forEach(function (c) { if (c.id === id) hit = c; });
+    return hit;
+  }
+
+  /** 二维码面板的车辆下拉：默认整页一码，选中车辆即一车一码 */
+  function renderQrSelect() {
+    var select = $('qrCarSelect');
+    if (!select) return;
+
+    // 车辆被删除后回落到整页码
+    if (state.qrCarId && !findCar(state.qrCarId)) state.qrCarId = '';
+
+    var html = '<option value="">整页一码（展示全部车辆）</option>';
+    state.cars.forEach(function (car) {
+      html +=
+        '<option value="' + escapeHtml(car.id) + '"' +
+        (car.id === state.qrCarId ? ' selected' : '') + '>' +
+        escapeHtml(car.plate) + (car.enabled === false ? '（已隐藏）' : '') +
+        '</option>';
+    });
+    select.innerHTML = html;
+
+    var tip = $('qrModeTip');
+    if (tip) {
+      tip.textContent = state.qrCarId
+        ? '一车一码：扫码后只显示这辆车，可直接呼叫'
+        : '扫码后显示全部车辆，由扫码人自行选择';
+    }
+  }
+
+  $('qrCarSelect').addEventListener('change', function () {
+    state.qrCarId = this.value;
+    renderQrSelect();
+    refreshQr();
+  });
+
+  /** 下载文件名：一车一码时带上车牌，便于区分 */
+  function qrFileName(ext) {
+    var car = findCar(state.qrCarId);
+    var base = car ? car.plate : state.site.id;
+    return '挪车二维码-' + base + '.' + ext;
+  }
+
   function renderQr(target, size) {
     if (!target) return;
-    target.innerHTML = renderQrSvg(state.pageUrl, {
+    target.innerHTML = renderQrSvg(qrUrl(), {
       pixelSize: size || 512,
       style: 'dot',
       ariaLabel: '挪车二维码',
@@ -842,10 +897,19 @@ import { renderQrSvg } from '../shared/qr.js';
   }
 
   function refreshQr() {
-    $('qrLink').textContent = state.pageUrl;
-    $('qrLink').href = state.pageUrl;
+    var url = qrUrl();
+    $('qrLink').textContent = url;
+    $('qrLink').href = url;
     renderQr($('qrCanvas'), 600);
     renderQr($('printQr'), 800);
+
+    // 打印车贴上一并印出车牌，方便对方核对，避免扫错车
+    var car = findCar(state.qrCarId);
+    var plate = $('printPlate');
+    if (plate) {
+      plate.textContent = car ? car.plate : '';
+      plate.hidden = !car;
+    }
   }
 
   $('copyLinkBtn').addEventListener('click', function () {
@@ -853,7 +917,7 @@ import { renderQrSvg } from '../shared/qr.js';
       toast('当前浏览器不支持自动复制，请长按链接手动复制');
       return;
     }
-    navigator.clipboard.writeText(state.pageUrl)
+    navigator.clipboard.writeText(qrUrl())
       .then(function () { toast('链接已复制'); })
       .catch(function () { toast('复制失败，请手动选择'); });
   });
@@ -868,15 +932,15 @@ import { renderQrSvg } from '../shared/qr.js';
   }
 
   $('downloadSvgBtn').addEventListener('click', function () {
-    var svg = renderQrSvg(state.pageUrl, { pixelSize: 1024 });
-    downloadBlob('挪车二维码-' + state.site.id + '.svg', new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
+    var svg = renderQrSvg(qrUrl(), { pixelSize: 1024 });
+    downloadBlob(qrFileName('svg'), new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }));
   });
 
   $('downloadPngBtn').addEventListener('click', function () {
     var btn = $('downloadPngBtn');
     btn.disabled = true;
-    toImage(state.pageUrl, 1024, 'image/png')
-      .then(function (blob) { downloadBlob('挪车二维码-' + state.site.id + '.png', blob); })
+    toImage(qrUrl(), 1024, 'image/png')
+      .then(function (blob) { downloadBlob(qrFileName('png'), blob); })
       .catch(function () { toast('导出失败，请改用 SVG'); })
       .then(function () { btn.disabled = false; });
   });
@@ -884,8 +948,8 @@ import { renderQrSvg } from '../shared/qr.js';
   $('downloadJpgBtn').addEventListener('click', function () {
     var btn = $('downloadJpgBtn');
     btn.disabled = true;
-    toImage(state.pageUrl, 1024, 'image/jpeg', 0.92)
-      .then(function (blob) { downloadBlob('挪车二维码-' + state.site.id + '.jpg', blob); })
+    toImage(qrUrl(), 1024, 'image/jpeg', 0.92)
+      .then(function (blob) { downloadBlob(qrFileName('jpg'), blob); })
       .catch(function () { toast('导出失败，请改用 SVG'); })
       .then(function () { btn.disabled = false; });
   });

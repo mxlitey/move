@@ -116,6 +116,7 @@ async function main() {
   check('后台有 PNG 下载按钮', shellHtml.includes('downloadPngBtn'));
   check('后台有 JPG 下载按钮', shellHtml.includes('downloadJpgBtn'));
   check('后台有 SVG 下载按钮', shellHtml.includes('downloadSvgBtn'));
+  check('后台有二维码指向下拉', shellHtml.includes('qrCarSelect'));
   check('扫码预览卡片已移除', !shellHtml.includes('qrPreview'));
 
   // 6. 新增车辆（多号码）
@@ -189,6 +190,28 @@ async function main() {
   // 12. 错误 pageId
   r = await call('/p/zzzzzzzz', { keepCookie: false });
   check('无效 pageId 返回失效页', r.status === 200 && String(r.payload).includes('挪车码无效'));
+
+  // 12b. 一车一码：带 ?car= 时只展示该车
+  r = await call(`/p/${pageId}?car=${encodeURIComponent(car1)}`, { keepCookie: false });
+  const oneCarHtml = String(r.payload);
+  check('一车一码页可访问', r.status === 200);
+  check('一车一码只显示指定车辆', oneCarHtml.includes('粤B12345') && !oneCarHtml.includes('粤B67890'));
+  check('一车一码使用单车结构', oneCarHtml.includes('park-cars is-single'));
+  check('一车一码仍有呼叫按钮', oneCarHtml.includes(`data-call-id="${car1}"`));
+  check('一车一码不含手机号', !oneCarHtml.includes('13800138000'));
+
+  r = await call(`/p/${pageId}?car=${encodeURIComponent(car2)}`, { keepCookie: false });
+  const otherCarHtml = String(r.payload);
+  check('切换到另一辆车的码', otherCarHtml.includes('粤B67890') && !otherCarHtml.includes('粤B12345'));
+
+  // 参数无效时回落到整页列表，避免扫到失效页
+  r = await call(`/p/${pageId}?car=nope`, { keepCookie: false });
+  const fallbackHtml = String(r.payload);
+  check('无效 car 参数回落整页列表', fallbackHtml.includes('粤B12345') && fallbackHtml.includes('粤B67890'));
+
+  // 取号接口对一车一码同样有效
+  r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: car1 }, keepCookie: false });
+  check('一车一码取号成功', r.status === 200 && r.payload.data.plate === '粤B12345', JSON.stringify(r.payload));
 
   // 13. 取号接口：只返回置顶号码
   r = await call(`/api/p/${pageId}/contact`, { method: 'POST', body: { carId: car1 }, keepCookie: false });
@@ -300,6 +323,12 @@ async function main() {
   // 18. 二维码 SVG
   r = await call(`/p/${pageId}/qr.svg`, { keepCookie: false });
   check('二维码 SVG 可访问', r.status === 200 && String(r.payload).startsWith('<svg'));
+
+  r = await call(`/p/${pageId}/qr.svg?car=${encodeURIComponent(car1)}`, { keepCookie: false });
+  check('一车一码 SVG 可访问', r.status === 200 && String(r.payload).startsWith('<svg'));
+  const qrOneCar = String(r.payload);
+  r = await call(`/p/${pageId}/qr.svg`, { keepCookie: false });
+  check('一车一码与整页码内容不同', qrOneCar !== String(r.payload));
 
   // 19. 重置 ID
   r = await call('/api/admin/page/reset-id', { method: 'POST', body: {} });

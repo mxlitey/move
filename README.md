@@ -5,7 +5,7 @@
 ![status](https://img.shields.io/badge/status-MVP%20ready-green)
 ![runtime](https://img.shields.io/badge/runtime-Alibaba%20Cloud%20ESA-orange)
 ![deps](https://img.shields.io/badge/dependencies-2%20dev--only-blue)
-![tests](https://img.shields.io/badge/smoke%20tests-38%20passed-brightgreen)
+![tests](https://img.shields.io/badge/smoke%20tests-96%20passed-brightgreen)
 
 **特点一览**
 
@@ -25,7 +25,8 @@
 
 他人微信扫码后看到的移动端页面：
 
-- 展示车主名下车辆（车牌、颜色、型号），多车单选，单车自动跳过选择
+- 展示车主名下车辆（车牌），多车单选，单车自动跳过选择
+- 支持一车一码：二维码带 `?car={carId}` 时只显示该车，直接给出呼叫按钮
 - 「一键呼叫车主」大按钮 → 确认弹层显示脱敏号码（`138****0000`）→ 调起系统拨号
 - 车辆全部停用或页面不存在时展示友好兜底页，不泄露任何信息
 
@@ -34,7 +35,7 @@
 密码保护的单管理员后台：
 
 - 车辆 CRUD：新增 / 编辑 / 启用停用 / 排序
-- 二维码：圆形码预览、SVG / PNG 下载、复制链接、A6 打印车贴
+- 二维码：整页一码或一车一码切换，圆形码预览、SVG / PNG / JPG 下载、复制链接、A6 打印车贴
 - 页面设置：标题、提示语、重置公开 ID（旧码立即作废）
 - 账号安全：PBKDF2 密码摘要存储，改密后旧会话全部失效
 
@@ -105,9 +106,9 @@ ESA 函数单次执行最多 4 个子请求，KV 又没有按前缀列 key 的�
 
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
-| GET | `/p/{siteId}` | 公开 | 扫码页 HTML（30 s 边缘缓存） |
+| GET | `/p/{siteId}` | 公开 | 扫码页 HTML（30 s 边缘缓存），`?car={carId}` 只看该车 |
 | POST | `/api/p/{siteId}/contact` | 公开 + 限流 | body `{carId}`，返回 `{phone, plate}` |
-| GET | `/p/{siteId}/qr.svg` | 公开 | 二维码 SVG（缓存 1 天） |
+| GET | `/p/{siteId}/qr.svg` | 公开 | 二维码 SVG（缓存 1 天），可带 `?car={carId}` |
 | GET | `/admin` | 公开 | 初始化 / 登录 / 后台（服务端判态） |
 | POST | `/api/admin/init` | 公开 + 限流 | 首次设置密码（仅一次） |
 | POST | `/api/admin/login` | 公开 + 限流 | `{password}` → Set-Cookie 会话 |
@@ -139,7 +140,7 @@ move/
 │  └─ web/                   # 前端源码（styles.css / park.js / admin.js）
 ├─ build/build.mjs           # 内联打包 → dist/index.js
 ├─ dev/server.mjs            # 本地服务（mock EdgeKV）
-├─ dev/smoke.mjs             # 端到端冒烟测试（38 项）
+├─ dev/smoke.mjs             # 端到端冒烟测试（96 项）
 ├─ dev/qr-check.mjs          # 二维码渲染一致性校验
 └─ dist/index.js             # 部署产物
 ```
@@ -160,7 +161,7 @@ move/
 ## 测试
 
 ```bash
-npm run smoke      # 端到端冒烟测试，38 项（需先 npm run dev）
+npm run smoke      # 端到端冒烟测试，96 项（需先 npm run dev）
 node dev/qr-check.mjs   # 二维码渲染矩阵与 qrcode-generator 逐格比对
 ```
 

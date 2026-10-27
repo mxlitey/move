@@ -23,14 +23,20 @@ function callButton(pageId, carId) {
  * 单车：直接展示车牌与呼叫按钮。
  * 多车：手风琴，默认展开第一辆，展开项内嵌呼叫按钮。
  *
+ * selectedCarId 来自二维码里的 ?car= 参数（一车一码），
+ * 命中时只展示这一辆车，扫码人无需再挑选。
+ *
  * demo 为 true 时使用假数据，号码不走接口，仅用于首页的示例演示。
  */
-export function renderParkBody(page, { demo = false } = {}) {
-  const cars = (page.cars || [])
+export function renderParkBody(page, { demo = false, selectedCarId = '' } = {}) {
+  const enabled = (page.cars || [])
     .filter((c) => c.enabled)
     .sort((a, b) => (a.sort || 0) - (b.sort || 0));
 
-  if (!cars.length) return renderEmptyBody(page, '暂无可用车辆');
+  if (!enabled.length) return renderEmptyBody(page, '暂无可用车辆');
+
+  const locked = selectedCarId ? enabled.find((c) => c.id === selectedCarId) : null;
+  const cars = locked ? [locked] : enabled;
 
   const single = cars.length === 1;
 

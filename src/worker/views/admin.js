@@ -76,6 +76,11 @@ export function renderAdminBody() {
       <div class="card-head">
         <h2>挪车二维码</h2>
       </div>
+      <div class="field">
+        <label for="qrCarSelect">二维码指向</label>
+        <select class="input" id="qrCarSelect"></select>
+        <p class="muted" id="qrModeTip" style="margin:6px 0 0"></p>
+      </div>
       <div class="qr-wrap">
         <div class="qr-canvas" id="qrCanvas"></div>
         <div class="qr-side">
@@ -186,6 +191,7 @@ export function renderAdminBody() {
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <div class="print-sheet" id="printSheet">
+  <div class="p-plate" id="printPlate" hidden></div>
   <div class="p-qr" id="printQr"></div>
   <div class="p-tip">如需挪车，请扫码联系车主<br>Scan to contact the owner</div>
 </div>`;

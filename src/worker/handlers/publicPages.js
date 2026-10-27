@@ -65,7 +65,10 @@ export async function handleParkPage(env, request, pageId) {
     });
   }
 
-  const body = renderParkBody(site);
+  // 一车一码：二维码里带 ?car={carId} 时，页面只展示这一辆车。
+  // 车辆已删除或停用时退回整页列表，避免扫码后看到失效页。
+  const carParam = new URL(request.url).searchParams.get('car') || '';
+  const body = renderParkBody(site, { selectedCarId: carParam });
 
   return documentShell({
     title: site.title || '挪车码',
@@ -83,7 +86,11 @@ export async function handleQrSvg(env, request, pageId) {
   const site = await readSite(env);
   if (!site || site.id !== pageId) return htmlPage('挪车码无效', { status: 404 });
 
-  const url = `${new URL(request.url).origin}/p/${pageId}`;
+  // 一车一码：?car={carId} 生成只指向该车的二维码
+  const carId = new URL(request.url).searchParams.get('car') || '';
+  const car = carId ? (site.cars || []).find((c) => c.id === carId) : null;
+  const url = `${new URL(request.url).origin}/p/${pageId}${car ? `?car=${encodeURIComponent(car.id)}` : ''}`;
+
   const svg = renderQrSvg(url, { pixelSize: 1024, style: 'dot' });
   return svgImage(svg);
 }
