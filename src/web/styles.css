@@ -538,20 +538,21 @@ button { font: inherit; color: inherit; }
   color: #fff;
 }
 
-.park-body .cfm-cancel {
+/* 取消按钮是浅色底，文字必须用深色，故用同等优先级的选择器覆盖上面的 #fff */
+.park-body .cfm-actions .cfm-cancel {
   background: var(--island-input);
   color: var(--island-text);
   border: 2px solid var(--island-line);
   box-shadow: 0 3px 0 0 var(--island-line-soft);
 }
 
-.park-body .cfm-cancel:active { transform: translateY(2px); box-shadow: 0 1px 0 0 var(--island-line-soft); }
+.park-body .cfm-actions .cfm-cancel:active { transform: translateY(2px); box-shadow: 0 1px 0 0 var(--island-line-soft); }
 
-.park-body .cfm-ok { background: var(--island-primary); box-shadow: 0 4px 0 0 var(--island-shadow); }
+.park-body .cfm-actions .cfm-ok { background: var(--island-primary); box-shadow: 0 4px 0 0 var(--island-shadow); }
 
-.park-body .cfm-ok:hover { background: var(--island-primary-hover); }
+.park-body .cfm-actions .cfm-ok:hover { background: var(--island-primary-hover); }
 
-.park-body .cfm-ok:active {
+.park-body .cfm-actions .cfm-ok:active {
   background: var(--island-primary-active);
   transform: translateY(2px);
   box-shadow: 0 1px 0 0 var(--island-shadow);
