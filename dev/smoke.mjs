@@ -168,6 +168,36 @@ async function main() {
   rev = r.payload.data.site.rev;
   const car2 = r.payload.data.carId;
 
+  // 9b. 车辆自编 ID
+  r = await call('/api/admin/car', {
+    method: 'POST',
+    body: { carCode: 'MY-BMW_3', plate: '粤B99999', phones: [{ phone: '13600136000' }], enabled: true, rev },
+  });
+  check('自编 ID 保存成功', r.status === 200 && r.payload.ok, JSON.stringify(r.payload).slice(0, 120));
+  rev = r.payload.data.site.rev;
+  const customPageId = r.payload.data.site.id;
+  const carCustom = r.payload.data.carId;
+  check('自编 ID 自动转小写', carCustom === 'my-bmw_3', carCustom);
+
+  r = await call('/api/admin/car', {
+    method: 'POST',
+    body: { carCode: 'my-bmw_3', plate: '粤B88888', phones: [{ phone: '13600136001' }], rev },
+  });
+  check('重复的自编 ID 被拒绝', r.status === 400, `实际 ${r.status}`);
+
+  r = await call('/api/admin/car', {
+    method: 'POST',
+    body: { carCode: 'bad id!', plate: '粤B88888', phones: [{ phone: '13600136001' }], rev },
+  });
+  check('非法自编 ID 被拒绝', r.status === 400);
+
+  r = await call(`/p/${customPageId}?car=${carCustom}`, { keepCookie: false });
+  check('自编 ID 的一车一码可访问', r.status === 200 && String(r.payload).includes('粤B99999'));
+
+  r = await call(`/api/admin/car?id=${carCustom}&rev=${rev}`, { method: 'DELETE' });
+  check('删除自编 ID 车辆', r.status === 200 && r.payload.data.site.cars.length === 2);
+  rev = r.payload.data.site.rev;
+
   // 10. 读回站点确认
   r = await call('/api/admin/session');
   const s2 = r.payload.data.site;

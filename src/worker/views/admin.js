@@ -175,6 +175,12 @@ export function renderAdminBody() {
         <input class="input" id="carPlate" maxlength="9" placeholder="如 粤B12345" required>
       </div>
       <div class="field">
+        <label for="carCode">车辆 ID</label>
+        <input class="input" id="carCode" maxlength="32" spellcheck="false" autocapitalize="off"
+               autocomplete="off" placeholder="留空则自动生成，如 bmw-x3">
+        <p class="muted" id="carCodeTip" style="margin:6px 0 0"></p>
+      </div>
+      <div class="field">
         <label>联系电话</label>
         <div id="phoneList"></div>
         <button class="btn btn-ghost btn-sm" id="addPhoneBtn" type="button" style="margin-top:8px">${ICONS.plus}<span>添加号码</span></button>

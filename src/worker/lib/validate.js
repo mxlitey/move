@@ -110,3 +110,17 @@ export function validatePagePayload(body) {
 export function newCarId() {
   return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
+
+/**
+ * 车辆自编 ID：会出现在一车一码地址的 ?car= 里，所以限制为 URL 安全字符。
+ * 小写化后校验，长度 2-32，避免过短被猜中或过长不便印刷。
+ */
+export const CAR_ID_RE = /^[a-z0-9_-]{2,32}$/;
+
+export function validateCarId(input) {
+  const value = String(input || '').trim().toLowerCase();
+  if (!CAR_ID_RE.test(value)) {
+    return { ok: false, message: '车辆 ID 只能用字母、数字、- 和 _，长度 2-32 位' };
+  }
+  return { ok: true, value };
+}

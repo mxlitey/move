@@ -635,6 +635,9 @@ import { renderQrSvg } from '../shared/qr.js';
   function openCarModal(car) {
     $('carId').value = car ? car.id : '';
     $('carPlate').value = car ? car.plate : '';
+    $('carCode').value = car ? car.id : '';
+    showAlert('carError', '');
+    refreshCarCodeTip();
 
     var phones = car ? phoneListOf(car) : [];
     modalPhones = phones.length
@@ -645,10 +648,28 @@ import { renderQrSvg } from '../shared/qr.js';
 
     $('carModalTitle').textContent = car ? '编辑车辆' : '添加车辆';
     renderModalPhones();
-    showAlert('carError', '');
     $('carModal').hidden = false;
     $('carPlate').focus();
   }
+
+  /** 车辆 ID 会进入一车一码链接，实时提示最终地址 */
+  function refreshCarCodeTip() {
+    var tip = $('carCodeTip');
+    if (!tip) return;
+    var code = $('carCode').value.trim().toLowerCase();
+    if (!code) {
+      tip.textContent = '留空自动生成；自定义后一车一码链接为 ' + location.origin + '/p/…?car={ID}';
+      return;
+    }
+    tip.textContent = '一车一码链接：' + location.origin + '/p/' + (state.site ? state.site.id : '…') + '?car=' + code;
+  }
+
+  $('carCode').addEventListener('input', function () {
+    // 只允许小写字母、数字、- 和 _，与后端校验保持一致
+    var cleaned = this.value.replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+    if (cleaned !== this.value) this.value = cleaned;
+    refreshCarCodeTip();
+  });
 
   function newPhoneId() {
     return 'p' + Math.random().toString(36).slice(2, 8);
@@ -707,6 +728,7 @@ import { renderQrSvg } from '../shared/qr.js';
 
     var payload = {
       id: $('carId').value || undefined,
+      carCode: $('carCode').value.trim().toLowerCase(),
       plate: $('carPlate').value,
       phones: collectModalPhones(),
       // 开关已移到列表里，弹层保存时保持原有可见状态
@@ -714,10 +736,20 @@ import { renderQrSvg } from '../shared/qr.js';
       rev: state.site.rev,
     };
     var btn = $('carSaveBtn');
+    var previousId = $('carId').value;
+    var nextCode = payload.carCode;
+
+    // 改车辆 ID 会让已打印的一车一码失效，先确认
+    if (previousId && nextCode && nextCode !== previousId) {
+      if (!confirm('车辆 ID 将从 ' + previousId + ' 改为 ' + nextCode + '\n\n该车的旧一车一码将失效，需要重新下载打印。确定修改吗？')) return;
+    }
+
     btn.disabled = true;
     showAlert('carError', '');
     api('/api/admin/car', { method: 'POST', body: payload })
-      .then(function () {
+      .then(function (data) {
+        // 车辆 ID 改过名时，跟随更新二维码面板的选择，避免回落到整页码
+        if (previousId && state.qrCarId === previousId && data.carId) state.qrCarId = data.carId;
         closeCarModal();
         return loadData();
       })

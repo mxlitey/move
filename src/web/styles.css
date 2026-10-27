@@ -311,7 +311,53 @@ button { font: inherit; color: inherit; }
 
 /* 单车时不需要折叠动效，直接常开 */
 .park-cars.is-single .acc-panel { grid-template-rows: 1fr; }
-.park-cars.is-single .acc-panel-inner { padding-bottom: 16px; }
+.park-cars.is-single .acc-panel-inner {
+  display: flex;
+  justify-content: center;
+  padding: 6px 16px 26px;
+}
+
+/* 单车页（含一车一码）：呼叫按钮做成大圆形，拇指热区更大更好按 */
+.park-cars.is-single .call-btn {
+  flex-direction: column;
+  gap: 10px;
+  width: 176px;
+  height: 176px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 19px;
+  letter-spacing: .06em;
+  box-shadow: 0 8px 0 0 var(--island-shadow);
+}
+
+.park-cars.is-single .call-btn svg { width: 46px; height: 46px; flex: 0 0 46px; }
+
+/* 圆内文字最多两行，避免「正在获取号码…」把圆撑变形 */
+.park-cars.is-single .call-btn .call-label {
+  max-width: 128px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.park-cars.is-single .call-btn:hover {
+  box-shadow: 0 10px 0 0 var(--island-shadow);
+  transform: translateY(-2px);
+}
+
+.park-cars.is-single .call-btn:active {
+  box-shadow: 0 2px 0 0 var(--island-shadow);
+  transform: translateY(6px);
+}
+
+.park-cars.is-single .call-btn[disabled] {
+  box-shadow: 0 5px 0 0 var(--island-line-soft);
+  transform: none;
+}
+
+@media (max-width: 360px) {
+  .park-cars.is-single .call-btn { width: 156px; height: 156px; font-size: 17px; }
+  .park-cars.is-single .call-btn svg { width: 40px; height: 40px; flex-basis: 40px; }
+}
 
 .park-actions { margin-top: auto; padding-top: 6px; }
 

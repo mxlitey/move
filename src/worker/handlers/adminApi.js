@@ -11,7 +11,7 @@ import {
   changePassword,
 } from '../lib/auth.js';
 import { rateLimit, clientIp, RULES } from '../lib/ratelimit.js';
-import { validateCarPayload, validatePagePayload, newCarId } from '../lib/validate.js';
+import { validateCarPayload, validatePagePayload, validateCarId, newCarId } from '../lib/validate.js';
 import { readSite, saveSite, emptySite, newPageId } from '../lib/kv.js';
 import { CSS, ADMIN_JS } from '../generated/assets.js';
 
@@ -212,8 +212,21 @@ export async function handleSaveCar(env, request) {
 
   const site = await ensureSite(env);
   const cars = Array.isArray(site.cars) ? site.cars.slice() : [];
-  const id = body.id || newCarId();
-  const index = cars.findIndex((c) => c.id === id);
+  const existingId = body.id || '';
+  const index = existingId ? cars.findIndex((c) => c.id === existingId) : -1;
+
+  // 自编 ID：留空则沿用原 ID（新建时自动生成）
+  let id = existingId;
+  const customCode = body.carCode === undefined || body.carCode === null ? '' : String(body.carCode).trim();
+  if (customCode) {
+    const checked = validateCarId(customCode);
+    if (!checked.ok) return fail('INVALID_INPUT', checked.message);
+    if (cars.some((c) => c.id === checked.value && c.id !== existingId)) {
+      return fail('INVALID_INPUT', '该车辆 ID 已被其他车辆占用，请换一个');
+    }
+    id = checked.value;
+  }
+  if (!id) id = newCarId();
 
   const car = {
     id,
