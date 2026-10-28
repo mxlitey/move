@@ -6,9 +6,6 @@
  */
 const BASE = process.argv[2] || 'http://localhost:8899';
 
-// 每次运行使用独立的模拟来源 IP，避免上一轮的限流计数影响本轮结果
-const RUN_IP = `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
-
 let passed = 0;
 let failed = 0;
 let cookie = '';
@@ -29,7 +26,6 @@ async function call(path, { method = 'GET', body, headers = {}, keepCookie = tru
     headers: {
       'Content-Type': 'application/json',
       'X-Requested-With': 'fetch',
-      'X-Forwarded-For': RUN_IP,
       ...headers,
     },
     redirect: 'manual',
@@ -76,7 +72,7 @@ async function main() {
 
   // 4. 错误密码
   r = await call('/api/admin/login', { method: 'POST', body: { password: 'wrong-password' } });
-  check('错误密码被拒绝（401 或触发限流 429）', r.status === 401 || r.status === 429, `实际 ${r.status}`);
+  check('错误密码被拒绝（401）', r.status === 401, `实际 ${r.status}`);
 
   // 5. 读取站点
   r = await call('/api/admin/session');

@@ -152,11 +152,7 @@
         confirmDialog(data.phone);
       })
       .catch(function (err) {
-        if (err.code === 'RATE_LIMITED') {
-          toast('请求过于频繁，请稍后再试');
-        } else {
-          toast(err.message || '获取号码失败，请稍后重试');
-        }
+        toast(err.message || '获取号码失败，请稍后重试');
       })
       .then(function () {
         busy = false;

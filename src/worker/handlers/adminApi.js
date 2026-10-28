@@ -10,7 +10,6 @@ import {
   readSession,
   changePassword,
 } from '../lib/auth.js';
-import { rateLimit, clientIp, RULES } from '../lib/ratelimit.js';
 import { validateCarPayload, validatePagePayload, validateCarId, newCarId } from '../lib/validate.js';
 import { readSite, saveSite, emptySite, newPageId } from '../lib/kv.js';
 import { CSS, ADMIN_JS } from '../generated/assets.js';
@@ -81,9 +80,6 @@ export async function handleAdminPage(env, request) {
 }
 
 export async function handleLogin(env, request) {
-  const rl = await rateLimit(env, 'login', clientIp(request), RULES.login);
-  if (!rl.allowed) return fail('RATE_LIMITED', `尝试过于频繁，请 ${rl.retryAfter} 秒后再试`, 429);
-
   const body = await readBody(request);
   if (!body || typeof body.password !== 'string') return fail('INVALID_INPUT', '参数错误');
 
@@ -100,9 +96,6 @@ export async function handleLogin(env, request) {
 }
 
 export async function handleInit(env, request) {
-  const rl = await rateLimit(env, 'login', clientIp(request), RULES.login);
-  if (!rl.allowed) return fail('RATE_LIMITED', `操作过于频繁，请 ${rl.retryAfter} 秒后再试`, 429);
-
   const body = await readBody(request);
   if (!body || typeof body.password !== 'string') return fail('INVALID_INPUT', '参数错误');
   if (body.password.length < 8) return fail('INVALID_INPUT', '密码至少 8 位');
@@ -170,9 +163,6 @@ export async function handleResetId(env, request) {
 export async function handleSetPageId(env, request) {
   if (!(await auth(env, request))) return fail('UNAUTHORIZED', '未登录', 401);
 
-  const rl = await rateLimit(env, 'write', clientIp(request), RULES.write);
-  if (!rl.allowed) return fail('RATE_LIMITED', '操作过于频繁，请稍后再试', 429);
-
   const body = await readBody(request);
   if (!body || typeof body.id !== 'string') return fail('INVALID_INPUT', '参数错误');
 
@@ -200,9 +190,6 @@ export async function handleSetPageId(env, request) {
 
 export async function handleSaveCar(env, request) {
   if (!(await auth(env, request))) return fail('UNAUTHORIZED', '未登录', 401);
-
-  const rl = await rateLimit(env, 'write', clientIp(request), RULES.write);
-  if (!rl.allowed) return fail('RATE_LIMITED', '操作过于频繁，请稍后再试', 429);
 
   const body = await readBody(request);
   if (!body) return fail('INVALID_INPUT', '参数错误');

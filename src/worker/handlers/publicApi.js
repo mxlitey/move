@@ -1,6 +1,5 @@
 import { ok, fail } from '../lib/http.js';
 import { readSite } from '../lib/kv.js';
-import { rateLimit, clientIp, RULES } from '../lib/ratelimit.js';
 import { primaryPhone } from '../lib/validate.js';
 
 async function readBody(request) {
@@ -17,9 +16,6 @@ async function readBody(request) {
  * 手机号绝不出现在页面 HTML 里，只有用户主动点击呼叫时才下发。
  */
 export async function handleContact(env, request, pageId) {
-  const rl = await rateLimit(env, 'contact', clientIp(request), RULES.contact);
-  if (!rl.allowed) return fail('RATE_LIMITED', `请求过于频繁，请 ${rl.retryAfter} 秒后再试`, 429);
-
   const site = await readSite(env);
   if (!site || site.id !== pageId) return fail('NOT_FOUND', '挪车码无效', 404);
 

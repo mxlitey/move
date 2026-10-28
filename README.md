@@ -11,7 +11,7 @@
 
 - 🏗️ **Serverless 到底**：单个边缘函数 + 单个 EdgeKV 命名空间，无源站、无数据库、无服务器
 - 💸 **长期零成本**：挪车场景请求量极低，ESA 免费版 10 万次/天绰绰有余
-- 🔒 **号码不落页面**：扫码页 HTML 不含手机号，点「呼叫」时才取号，且 IP 限流
+- 🔒 **号码不落页面**：扫码页 HTML 不含手机号，点「呼叫」时才取号
 - 🎨 **圆形二维码**：圆点矩阵 + 定位角完整保留，H 级纠错，SVG/PNG/A6 打印三件套
 - ⚡ **部署极简**：`npm run build` 产出一个 ~150 KB 的 `dist/index.js`，粘贴即发布
 
@@ -70,15 +70,14 @@ npm run smoke
   │            阿里云 ESA 边缘函数（单函数，多路由）             │
   │  /p/{id}         服务端渲染移动端 HTML（不含手机号）         │
   │  /admin          登录 / 后台（同一 HTML 外壳，服务端判态）    │
-  │  /api/*          JSON API + 会话校验 + 限流                  │
+  │  /api/*          JSON API + 会话校验                         │
   │  /p/{id}/qr.svg  SVG 生成（服务端兜底）                      │
   └───────────────┬───────────────────────────┬───────────────┘
                   │ EdgeKV get/put             │ 域名绑定
                   ▼                            ▼
         ┌────────────────────┐        move.example.com (CNAME)
         │ KV 命名空间 movecar │
-        │ site               │
-        │ auth_admin / rl_*  │
+        │ site / auth_admin  │
         └────────────────────┘
 ```
 
@@ -92,13 +91,12 @@ ESA 函数单次执行最多 4 个子请求，KV 又没有按前缀列 key 的�
 |---|---|---|
 | `site` | 站点文档 JSON | 公开 ID + 文案 + 全部车辆，一次读、一次写 |
 | `auth_admin` | `{alg,iter,salt,hash,ver}` | 管理员密码摘要（PBKDF2），`ver` 作废旧会话 |
-| `rl_{bucket}_{ip}_{slot}` | `{n,blockedUntil}` | 限流计数（近似） |
 
 ### 安全设计
 
 - 密码 PBKDF2-SHA256（12 万次迭代 + 随机盐），不存明文
 - 无状态会话：`HMAC-SHA256` 签名的 Cookie（`HttpOnly; Secure; SameSite=Lax`），`ADMIN_SECRET` 走加密函数变量注入
-- 手机号保护：页面只渲染脱敏号，完整号码仅在点呼时经限流接口返回（`no-store`）
+- 手机号保护：页面只渲染脱敏号，完整号码仅在点呼时返回（`no-store`）
 - 写接口校验 `Origin` 同源 + `SameSite=Lax` 防 CSRF
 - 全站 CSP `default-src 'self'`，页面 `noindex` 禁收录
 
@@ -107,11 +105,11 @@ ESA 函数单次执行最多 4 个子请求，KV 又没有按前缀列 key 的�
 | 方法 | 路径 | 鉴权 | 说明 |
 |---|---|---|---|
 | GET | `/p/{siteId}` | 公开 | 扫码页 HTML（30 s 边缘缓存），`?car={carId}` 只看该车 |
-| POST | `/api/p/{siteId}/contact` | 公开 + 限流 | body `{carId}`，返回 `{phone, plate}` |
+| POST | `/api/p/{siteId}/contact` | 公开 | body `{carId}`，返回 `{phone, plate}` |
 | GET | `/p/{siteId}/qr.svg` | 公开 | 二维码 SVG（缓存 1 天），可带 `?car={carId}` |
 | GET | `/admin` | 公开 | 初始化 / 登录 / 后台（服务端判态） |
-| POST | `/api/admin/init` | 公开 + 限流 | 首次设置密码（仅一次） |
-| POST | `/api/admin/login` | 公开 + 限流 | `{password}` → Set-Cookie 会话 |
+| POST | `/api/admin/init` | 公开 | 首次设置密码（仅一次） |
+| POST | `/api/admin/login` | 公开 | `{password}` → Set-Cookie 会话 |
 | POST | `/api/admin/logout` | 公开 | 清除 Cookie |
 | GET | `/api/admin/session` | 需会话 | 返回站点数据与页面地址 |
 | PUT | `/api/admin/page` | 需会话 | 更新标题/提示语（带 `rev`） |
@@ -120,7 +118,7 @@ ESA 函数单次执行最多 4 个子请求，KV 又没有按前缀列 key 的�
 | DELETE | `/api/admin/car?id=&rev=` | 需会话 | 删除车辆 |
 | POST | `/api/admin/password` | 需会话 | 修改密码，旧会话全部失效 |
 
-统一响应格式：`{ok:true,data}` / `{ok:false,code,message}`，错误码见 `UNAUTHORIZED / NOT_FOUND / RATE_LIMITED / REV_CONFLICT / INVALID_INPUT`。
+统一响应格式：`{ok:true,data}` / `{ok:false,code,message}`，错误码见 `UNAUTHORIZED / NOT_FOUND / REV_CONFLICT / INVALID_INPUT`。
 
 ## 项目结构
 
@@ -135,7 +133,7 @@ move/
 │  │  ├─ index.js            # 入口：路由分发 + 同源校验
 │  │  ├─ handlers/           # 页面 / 公开 API / 管理 API
 │  │  ├─ views/              # 扫码页与后台视图（SSR）
-│  │  ├─ lib/                # kv / auth / ratelimit / http / layout / validate
+│  │  ├─ lib/                # kv / auth / http / layout / validate
 │  │  └─ generated/          # 构建产物（CSS/JS 内联，自动生成）
 │  └─ web/                   # 前端源码（styles.css / park.js / admin.js）
 ├─ build/build.mjs           # 内联打包 → dist/index.js
